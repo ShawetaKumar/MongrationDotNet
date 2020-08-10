@@ -1,4 +1,3 @@
-using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Mongo2Go;
 using MongoDB.Driver;
@@ -11,7 +10,7 @@ namespace MongrationDotNet.Tests
         public const string DbName = "dbName";
         public const string CollectionName = "product";
         public MongoDbRunner runner;
-        public DBMigration DbMigration;
+        public MigrationRunner MigrationRunner;
         public IMongoDatabase Database;
 
 
@@ -21,7 +20,7 @@ namespace MongrationDotNet.Tests
             runner = MongoDbRunner.Start();
             var client = new MongoClient(runner.ConnectionString);
             Database = client.GetDatabase(DbName);
-            DbMigration = new ServiceCollection()
+            MigrationRunner = new ServiceCollection()
                 .AddMigration(Database);
         }
 

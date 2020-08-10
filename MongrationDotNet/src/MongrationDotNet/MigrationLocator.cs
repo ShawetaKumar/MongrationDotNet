@@ -6,13 +6,13 @@ namespace MongrationDotNet
 {
     public static class MigrationLocator
     {
-        public static IEnumerable<MigrationCollection> GetAllMigrations()
+        public static IEnumerable<DocumentMigration> GetAllDocumentMigrations()
         {
             return AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(assembly => assembly.GetTypes())
-                .Where(type => type.IsSubclassOf(typeof(MigrationCollection)))
+                .Where(type => type.IsSubclassOf(typeof(DocumentMigration)))
                 .Select(Activator.CreateInstance)
-                .OfType<MigrationCollection>();
+                .OfType<DocumentMigration>();
         }
     }
 }

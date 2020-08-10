@@ -12,7 +12,7 @@ Install the Nuget Package from the Teamcity Nuget feed
 PS> install-package MongrationDotNet
 ```
 
-Add AddMigration in ServiceCollection of your project. You can either pass your IMongoDatabase reference or your MongoDB connection string and database name. It Returns an object of DBMigration which will be used to run the migration
+Add AddMigration in ServiceCollection of your project. You can either pass your IMongoDatabase reference or your MongoDB connection string and database name. It Returns an object of MigrationRunner which will be used to run the migration
 
 
 ```csharp
@@ -27,11 +27,11 @@ public void ConfigureServices(IServiceCollection services)
 }
 ```
 
-Collection Migration
+Document Migration
 These are migrations performed on every document in a given collection. Supply the version number (Semantic Versioning) and an optional description, then simply override the MigrationObjects property to create a dictionary of collection name and fields to rename/remove
 
 ```csharp
-public class ProductVersion : MigrationCollection
+public class ProductMigration : DocumentMigration
     {
        public override Version Version => new Version(1, 1, 1, 0);
        public override string Description => "Product migration";
@@ -52,21 +52,21 @@ public class ProductVersion : MigrationCollection
 ```
 # How to run migration
 
-Run the Migrate function on the DBMigration object in your starup code
+Run the Migrate function on the MigrationRunner object in your starup code
 
 ```csharp
 public class SetupMongoCollectionOnStartup : IStartupTask
     {
-        private readonly DBMigration DbMigration;
+        private readonly MigrationRunner migrationRunner;
 
-        public SetupMongoCollectionOnStartup(DBMigration dbMigration)
+        public SetupMongoCollectionOnStartup(MigrationRunner migrationRunner)
         {
-            DbMigration = DbMigration;
+            this.migrationRunner = migrationRunner;
         }
 
         public async Task ExecuteAsync(CancellationToken cancellationToken = default)
         {
-            await DbMigration.Migrate();
+            await migrationRunner.Migrate();
         }
     }
 ```

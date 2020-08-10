@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using MongoDB.Bson;
@@ -15,7 +14,7 @@ namespace MongrationDotNet.Tests
         private Version Version => new Version(1, 1, 1, 0);
         private IMongoCollection<MigrationDetails> migrationCollection;
         private IMongoCollection<BsonDocument> productCollection;
-        private ProductVersion productVersion = new ProductVersion();
+        private ProductMigration productMigration = new ProductMigration();
 
         [SetUp]
         public void SetupDatabase()
@@ -35,7 +34,7 @@ namespace MongrationDotNet.Tests
         [Test]
         public async Task Migration_ShouldSaveMigrationDetails_WhenMigrationIsApplied()
         {
-            await DbMigration.Migrate();
+            await MigrationRunner.Migrate();
             var result = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty).FirstOrDefaultAsync();
             
             result.ShouldNotBeNull();
@@ -49,12 +48,13 @@ namespace MongrationDotNet.Tests
             var migrationDetails = new MigrationDetails
             {
                 Version = Version,
+                Type = Constants.DocumentMigrationType,
                 Description = "product migration",
                 AppliedOn = DateTime.UtcNow
             };
             await migrationCollection.InsertOneAsync(migrationDetails);
             
-            await DbMigration.Migrate();
+            await MigrationRunner.Migrate();
             var result = await migrationCollection.Find(x=> x.Version == Version).ToListAsync();
 
             result.ShouldNotBeNull();
@@ -64,7 +64,7 @@ namespace MongrationDotNet.Tests
         [Test]
         public async Task Migration_ShouldExecuteSuccessfullyAndNotThrowError_WhenMigrationObjectListContainsANonExistingField()
         {
-            await DbMigration.Migrate();
+            await MigrationRunner.Migrate();
             var result = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty).FirstOrDefaultAsync();
 
             result.ShouldNotBeNull();
@@ -75,7 +75,7 @@ namespace MongrationDotNet.Tests
         [Test]
         public async Task Migration_ShouldRenameField_WhenMigrationObjectListContainsFieldsToRename()
         {
-            await DbMigration.Migrate();
+            await MigrationRunner.Migrate();
             var result = await productCollection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
             var document = result.ToString();
             document.Contains("name").ShouldBeFalse();
@@ -85,7 +85,7 @@ namespace MongrationDotNet.Tests
         [Test]
         public async Task Migration_ShouldRenameEmbeddedField_WhenMigrationObjectListContainsEmbeddedFieldsToRename()
         {
-            await DbMigration.Migrate();
+            await MigrationRunner.Migrate();
             var result = await productCollection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
             var document = result.ToString();
             document.Contains("\"store\" : { \"location\" : \"arizona\", \"id\" : \"s01\" }").ShouldBeFalse();
@@ -95,7 +95,7 @@ namespace MongrationDotNet.Tests
         [Test]
         public async Task Migration_ShouldRemoveField_WhenMigrationObjectListContainsFieldsToRemove()
         {
-            await DbMigration.Migrate();
+            await MigrationRunner.Migrate();
             var result = await productCollection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
             var document = result.ToString();
             document.Contains("createdUtc").ShouldBeFalse();

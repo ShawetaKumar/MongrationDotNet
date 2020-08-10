@@ -6,15 +6,15 @@ namespace MongrationDotNet
 {
     public static class ServiceCollectionExtension
     {
-        public static DBMigration AddMigration(this IServiceCollection serviceCollection, IMongoDatabase database)
+        public static MigrationRunner AddMigration(this IServiceCollection serviceCollection, IMongoDatabase database)
         {
             if (serviceCollection == null) throw new ArgumentNullException(nameof(serviceCollection));
             if (database == null) throw new ArgumentNullException(nameof(database));
 
-            return new DBMigration(database);
+            return new MigrationRunner(database);
         }
 
-        public static DBMigration AddMigration(this IServiceCollection serviceCollection, string connectionString, string databaseName)
+        public static MigrationRunner AddMigration(this IServiceCollection serviceCollection, string connectionString, string databaseName)
         {
             if (serviceCollection == null) throw new ArgumentNullException(nameof(serviceCollection));
             if (string.IsNullOrEmpty(connectionString)) throw new ArgumentNullException(nameof(connectionString));
@@ -22,7 +22,7 @@ namespace MongrationDotNet
             var mongoConnectionUrl = new MongoUrl(connectionString);
             var client = new MongoClient();
             var database = client.GetDatabase(databaseName);
-            return new DBMigration(database);
+            return new MigrationRunner(database);
         }
     }
 }
