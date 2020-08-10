@@ -1,0 +1,26 @@
+{
+  "type": "Product",
+  "name": "Headphones",
+  "status": "Approved",
+  "createdUtc": { "$date": { "$numberLong": "1547236112283" } },
+  "lastUpdatedUtc": { "$date": { "$numberLong": "1547254261160" } },
+  "store":
+  {
+    "id" : "s01",  
+    "location" : "arizona"  
+  },
+  "sales": [
+    {
+      "territory": "UK",
+      "salesPercent": 76
+    },
+    {
+      "territory": "US",
+      "salesPercent": 67
+    },
+    {
+      "territory": "Canada",
+      "salesPercent": 71
+    }
+  ]
+}
