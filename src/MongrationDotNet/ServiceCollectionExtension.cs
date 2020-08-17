@@ -11,7 +11,7 @@ namespace MongrationDotNet
             if (serviceCollection == null) throw new ArgumentNullException(nameof(serviceCollection));
             if (database == null) throw new ArgumentNullException(nameof(database));
 
-            serviceCollection.AddSingleton(provider => new MigrationRunner(database));
+            serviceCollection.AddSingleton<IMigrationRunner>(provider => new MigrationRunner(database));
             return serviceCollection;
         }
 
@@ -20,10 +20,9 @@ namespace MongrationDotNet
             if (serviceCollection == null) throw new ArgumentNullException(nameof(serviceCollection));
             if (string.IsNullOrEmpty(connectionString)) throw new ArgumentNullException(nameof(connectionString));
 
-            serviceCollection.AddSingleton(provider =>
+            serviceCollection.AddSingleton<IMigrationRunner>(provider =>
             {
-                var mongoConnectionUrl = new MongoUrl(connectionString);
-                var client = new MongoClient();
+                var client = new MongoClient(connectionString);
                 var database = client.GetDatabase(databaseName);
                 return new MigrationRunner(database);
             });
