@@ -27,5 +27,47 @@ namespace MongrationDotNet
             }
                 
         }
+
+        public static void AddToList(this Dictionary<string, ICollection<Dictionary<string, SortOrder>>> dictionary, string collection, string field, SortOrder sortOrder)
+        {
+            if (!dictionary.ContainsKey(collection))
+                dictionary.Add(collection, new List<Dictionary<string, SortOrder>> { new Dictionary<string, SortOrder> {{field, sortOrder}}});
+            else
+            {
+                var value = dictionary.GetValueOrDefault(collection);
+                value.Add(new Dictionary<string, SortOrder> { { field, sortOrder } } );
+                dictionary[collection] = value;
+            }
+        }
+
+        public static void AddToList(this Dictionary<string, ICollection<Dictionary<string, SortOrder>>> dictionary, string collection, string[] fields, SortOrder[] sortOrder)
+        {
+           var indexCombinations = new Dictionary<string, SortOrder>();
+           for (var i = 0; i < fields.Length; i++)
+           {
+               indexCombinations.Add(fields[i], sortOrder[i]);
+           }
+            
+           if (!dictionary.ContainsKey(collection))
+               dictionary.Add(collection, new [] {indexCombinations});
+           else
+           {
+               var value = dictionary.GetValueOrDefault(collection);
+               value.Add(indexCombinations);
+               dictionary[collection] = value;
+           }
+        }
+
+        public static void AddToList(this Dictionary<string, Dictionary<string, int>> dictionary, string collection, string field, int days)
+        {
+            if (!dictionary.ContainsKey(collection))
+                dictionary.Add(collection, new Dictionary<string, int> { { field, days } } );
+            else
+            {
+                var value = dictionary.GetValueOrDefault(collection);
+                value.Add(field, days);
+                dictionary[collection] = value;
+            }
+        }
     }
 }

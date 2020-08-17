@@ -21,6 +21,10 @@ namespace MongrationDotNet
                 {
                     migrations.Add(Activator.CreateInstance(type) as CollectionMigration);
                 }
+                if (type.BaseType == typeof(DatabaseMigration))
+                {
+                    migrations.Add(Activator.CreateInstance(type) as DatabaseMigration);
+                }
             }
 
             return migrations;

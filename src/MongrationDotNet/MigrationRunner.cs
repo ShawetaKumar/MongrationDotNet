@@ -22,6 +22,7 @@ namespace MongrationDotNet
             foreach (var migrationCollection in migrationCollections)
             {
                 var latestAppliedMigration = await migrationDetailsCollection.Find(x => x.Type == migrationCollection.Type && x.Version == migrationCollection.Version).FirstOrDefaultAsync();
+                
                 if (latestAppliedMigration != null) continue;
                 await SetMigrationInProgress(migrationCollection);
                 await migrationCollection.ExecuteAsync(database);
