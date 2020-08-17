@@ -12,7 +12,7 @@ namespace MongrationDotNet.Tests
         [SetUp]
         public void SetupDatabase()
         {
-            migrationCollection = Database.GetCollection<MigrationDetails>(typeof(MigrationDetails).Name);
+            migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
         }
 
         [TearDown]
