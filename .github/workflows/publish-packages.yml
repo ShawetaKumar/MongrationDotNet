@@ -15,9 +15,9 @@ jobs:
       with:
         dotnet-version: 3.1.101
     - name: Install dependencies
-      run: dotnet restore
+      run: dotnet restore src\MongrationDotNet/MongrationDotNet.csproj
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build src\MongrationDotNet/MongrationDotNet.csproj --configuration Release --no-restore
 
     - name: Publish MongrationDotNet
       uses: brandedoutcast/publish-nuget@v2.5.2
