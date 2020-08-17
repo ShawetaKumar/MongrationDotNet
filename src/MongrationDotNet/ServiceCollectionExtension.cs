@@ -22,8 +22,7 @@ namespace MongrationDotNet
 
             serviceCollection.AddSingleton(provider =>
             {
-                var mongoConnectionUrl = new MongoUrl(connectionString);
-                var client = new MongoClient();
+                var client = new MongoClient(connectionString);
                 var database = client.GetDatabase(databaseName);
                 return new MigrationRunner(database);
             });

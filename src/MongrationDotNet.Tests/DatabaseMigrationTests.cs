@@ -18,7 +18,7 @@ namespace MongrationDotNet.Tests
         public async Task SetupDatabase()
         {
             await Database.CreateCollectionAsync(CollectionName);
-            migrationCollection = Database.GetCollection<MigrationDetails>(typeof(MigrationDetails).Name);
+            migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
         }
 
         [TearDown]

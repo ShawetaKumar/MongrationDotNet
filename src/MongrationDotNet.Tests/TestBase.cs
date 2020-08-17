@@ -12,7 +12,7 @@ namespace MongrationDotNet.Tests
         public const string DbName = "dbName";
         public const string CollectionName = "product";
         public MongoDbRunner runner;
-        public MigrationRunner MigrationRunner;
+        public IMigrationRunner MigrationRunner;
         public IMongoDatabase Database;
 
 

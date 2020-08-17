@@ -4,7 +4,7 @@ using MongoDB.Driver;
 
 namespace MongrationDotNet
 {
-    public class MigrationRunner
+    public class MigrationRunner : IMigrationRunner
     {
         private readonly IMongoDatabase database;
         private IMongoCollection<MigrationDetails> migrationDetailsCollection;

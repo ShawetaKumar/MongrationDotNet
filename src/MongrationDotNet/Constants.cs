@@ -2,7 +2,7 @@
 {
     public static class Constants
     {
-        public const string MigrationDetailsCollection = "MigrationDetails";
+        public const string MigrationDetailsCollection = "migrationDetails";
         public const string CollectionMigrationType = "CollectionMigration";
         public const string DatabaseMigrationType = "DatabaseMigration";
     }
