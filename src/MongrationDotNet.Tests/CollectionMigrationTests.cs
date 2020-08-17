@@ -49,7 +49,7 @@ namespace MongrationDotNet.Tests
             await migrationCollection.InsertOneAsync(migrationDetails);
             
             await MigrationRunner.Migrate();
-            var result = await migrationCollection.Find(x=> x.Version == Version).ToListAsync();
+            var result = await migrationCollection.Find(x=> x.Type == Constants.CollectionMigrationType && x.Version == Version).ToListAsync();
 
             result.ShouldNotBeNull();
             result.Count.ShouldBe(1);
@@ -64,7 +64,7 @@ namespace MongrationDotNet.Tests
             await migrationCollection.InsertOneAsync(migrationDetails);
 
             await MigrationRunner.Migrate();
-            var result = await migrationCollection.Find(x => x.Version == Version).ToListAsync();
+            var result = await migrationCollection.Find(x => x.Type == Constants.CollectionMigrationType && x.Version == Version).ToListAsync();
 
             result.ShouldNotBeNull();
             result.Count.ShouldBe(1);

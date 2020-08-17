@@ -27,7 +27,7 @@ public void ConfigureServices(IServiceCollection services)
 }
 ```
 
-Collection Migration
+Collection Migration:
 These are migrations performed on every document in a given collection. Supply the version number (Semantic Versioning) and an optional description, then simply add to the MigrationFields property to create a dictionary of collection name and fields to rename/remove
 
 ```csharp
@@ -45,6 +45,45 @@ public class ProductMigration : CollectionMigration
    }
 }
 ```
+Database Migration:
+These are migrations performed on the database to create/rename/drop collection and create/drop indexes. Supply the version number (Semantic Versioning) and an optional description, then simply add to the appropriate migration property to create a dictionary of collection name and fields to create/rename/drop.
+Only add to that dictionary which you need to migrate
+
+```csharp
+public class DatabaseSetUpMigration : DatabaseMigration
+{
+    public override Version Version => new Version(1, 1, 1, 0);
+    public override string Description => "Database setup";
+
+    public DatabaseSetUpMigration()
+    {
+        CollectionCreationList.Add(TestBase.CollectionName);
+        CreateIndexList.AddToList(TestBase.CollectionName, "name", SortOrder.Ascending);
+        CreateIndexList.AddToList(TestBase.CollectionName, "status", SortOrder.Descending);
+        CreateIndexList.AddToList(TestBase.CollectionName, "store.id", SortOrder.Ascending);
+        CreateIndexList.AddToList(TestBase.CollectionName, new []{ "lastUpdatedUtc" , "_id" }, new[] { SortOrder.Ascending, SortOrder.Ascending
+        });
+        CreateIndexList.AddToList(TestBase.CollectionName, new []{ "_id", "lastUpdatedUtc" }, new[] { SortOrder.Ascending, SortOrder.Ascending});
+        CreateExpiryIndexList.AddToList(TestBase.CollectionName, "lastUpdatedUtc", 30);
+    }
+}
+```
+```csharp
+public class DropMigration : DatabaseMigration
+{
+    public override Version Version => new Version(1, 1, 1, 1);
+    public override string Description => "Database setup";
+
+    public DropMigration()
+    {
+        CollectionDropList.Add("newCollection");
+        CollectionDropList.Add("notACollection");
+        DropIndexList.Add("newCollection1", new List<string> { "newCollection1_name", "newCollection1_status" });
+        DropIndexList.Add("newCollection2", new List<string>());
+    }
+}
+```
+
 # How to run the migration
 
 Run the Migrate function on the MigrationRunner object in your startup code
