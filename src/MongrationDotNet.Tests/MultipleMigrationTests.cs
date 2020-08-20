@@ -35,7 +35,7 @@ namespace MongrationDotNet.Tests
                 .ToListAsync();
 
             documentMigrations.ShouldNotBeNull();
-            documentMigrations.Count.ShouldBe(1);
+            documentMigrations.Count.ShouldBe(2);
         }
     }
 }

@@ -4,23 +4,85 @@
   "status": "Approved",
   "createdUtc": { "$date": { "$numberLong": "1547236112283" } },
   "lastUpdatedUtc": { "$date": { "$numberLong": "1547254261160" } },
-  "store":
-  {
-    "id" : "s01",  
-    "location" : "arizona"  
+  "productDetails": {
+    "brand": "JBL",
+    "description": "Bluetooth Headphones"
   },
-  "sales": [
+  "targetGroup": [
     {
-      "territory": "UK",
-      "salesPercent": 76
+      "age": "15-25",
+      "type": "Youngsters",
+      "sellingPitch": "Bass Sound"
     },
     {
-      "territory": "US",
-      "salesPercent": 67
+      "age": "25-45",
+      "type": "Female",
+      "sellingPitch": "Vibrant Colors"
     },
     {
-      "territory": "Canada",
-      "salesPercent": 71
+      "age": "25-45",
+      "type": "Working Professional",
+      "sellingPitch": "Light Weight"
+    },
+    {
+      "age": "20-45",
+      "type": "Music Lovers",
+      "sellingPitch": "Noise Cancellation"
     }
-  ]
+  ],
+  "store": {
+    "id": "s01",
+    "sales": [
+      {
+        "franchise": true,
+        "territory": "UK",
+        "salesPercent": 76
+      },
+      {
+        "franchise": false,
+        "territory": "US",
+        "salesPercent": 67
+      },
+      {
+        "franchise": true,
+        "territory": "Canada",
+        "salesPercent": 71
+      }
+    ]
+  },
+  "bestseller":
+  {
+    "models": [
+      {
+        "category": "A",
+        "variants": [
+          {
+            "type": "A",
+            "color": "red",
+            "inStock": true
+          },
+          {
+            "type": "A",
+            "color": "black",
+            "inStock": false
+          }
+        ]
+      },
+      {
+        "category": "B",
+        "variants": [
+          {
+            "type": "B",
+            "color": "blue",
+            "inStock": true
+          },
+          {
+            "type": "B",
+            "color": "white",
+            "inStock": false
+          }
+        ]
+      }
+    ]
+  }
 }

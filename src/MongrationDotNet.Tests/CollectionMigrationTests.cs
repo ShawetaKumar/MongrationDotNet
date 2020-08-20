@@ -23,10 +23,9 @@ namespace MongrationDotNet.Tests
         }
 
         [TearDown]
-        public void ResetMigrationDetails()
+        public async Task ResetMigrationDetails()
         {
-            Database.DropCollection(Constants.MigrationDetailsCollection);
-            Database.DropCollection(CollectionName);
+            await Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
         }
 
         [Test]
@@ -97,8 +96,8 @@ namespace MongrationDotNet.Tests
             await MigrationRunner.Migrate();
             var result = await productCollection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
             var document = result.ToString();
-            document.Contains("\"store\" : { \"location\" : \"arizona\", \"id\" : \"s01\" }").ShouldBeFalse();
-            document.Contains("\"store\" : { \"location\" : \"arizona\", \"code\" : \"s01\" }").ShouldBeTrue();
+            document.Contains("\"productDetails\" : { \"description\" : \"Bluetooth Headphones\", \"brand\" : \"JBL\" }").ShouldBeFalse();
+            document.Contains("\"productDetails\" : { \"description\" : \"Bluetooth Headphones\", \"brandName\" : \"JBL\" }").ShouldBeTrue();
         }
 
         [Test]
@@ -108,6 +107,81 @@ namespace MongrationDotNet.Tests
             var result = await productCollection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
             var document = result.ToString();
             document.Contains("createdUtc").ShouldBeFalse();
+        }
+
+        [Test]
+        public async Task Migration_ShouldRemoveArrayField_WhenMigrationObjectListContainsArrayFieldsToRemove()
+        {
+            await MigrationRunner.Migrate();
+            var result = await productCollection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
+            
+            AssertArraySchema(result, "targetGroup", "age");
+            AssertArraySchema(result, "store.sales", "franchise");
+            AssertArraySchema(result, "bestseller.models.variants", "type");
+        }
+
+        [Test]
+        public async Task Migration_ShouldRenameArrayFieldAndMigrateItsValue_WhenMigrationObjectListContainsArrayFieldsToRenameAndMigrateArrayValuesIsTrue()
+        {
+            await MigrationRunner.Migrate();
+            var result = await productCollection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
+
+            AssertArraySchema(result, "targetGroup", "type", "buyer", true);
+            AssertArraySchema(result, "store.sales", "territory", "region", true);
+            AssertArraySchema(result, "bestseller.models.variants", "inStock", "isInStock", true);
+        }
+
+        [Test]
+        public async Task Migration_ShouldRenameArrayFieldAndSetItsValueToNull_WhenMigrationObjectListContainsArrayFieldsToRenameAndMigrateArrayValuesIsFalse()
+        {
+            const string collectionName = "newProduct";
+
+            runner.Import(DbName, collectionName, $"{Directory.GetCurrentDirectory()}\\Data\\product.json", true);
+            var collection = Database.GetCollection<BsonDocument>(collectionName);
+
+            await MigrationRunner.Migrate();
+            var result = await collection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
+
+            AssertArraySchema(result, "targetGroup", "type", "buyer", false);
+            AssertArraySchema(result, "store.sales", "territory", "region", false);
+            AssertArraySchema(result, "bestseller.models.variants", "inStock", "isInStock", false);
+        }
+
+        private static void AssertArraySchema(BsonDocument document, string arrayName, string oldField, string newField = null, bool checkValueForNotNull = false)
+        {
+            var segments = arrayName.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+
+            var currentSegmentIndex = 0;
+            BsonValue innerDocument = document.AsBsonDocument;
+            foreach (var segment in segments)
+            {
+                innerDocument = innerDocument.AsBsonDocument[segment];
+                var isLastNameSegment = segments.Length == currentSegmentIndex + 1;
+                if (!isLastNameSegment && innerDocument.IsBsonArray)
+                {
+                    var bsonArray = innerDocument.AsBsonArray;
+                    foreach (var arrayElement in bsonArray)
+                    {
+                        innerDocument = arrayElement;
+                    }
+                }
+                currentSegmentIndex += 1;
+            }
+            var array = innerDocument.AsBsonArray;
+            foreach (var arrayElement in array)
+            {
+                var fieldName = arrayElement.AsBsonValue.ToString();
+                fieldName.ShouldNotContain($"\"{oldField}\" :");
+                if (newField == null) continue;
+                
+                fieldName.ShouldContain($"\"{newField}\" :");
+                    
+                var fieldValue = arrayElement.AsBsonDocument[newField];
+                if (checkValueForNotNull)
+                    string.IsNullOrEmpty(fieldValue.ToString()).ShouldBeFalse();
+                else
+                    fieldValue.ShouldBe(BsonValue.Create(null));
+            }
         }
     }
 }
