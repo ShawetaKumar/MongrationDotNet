@@ -38,13 +38,146 @@ public class ProductMigration : CollectionMigration
        
    public ProductMigration()
    {
-       MigrationObjects.AddPropertyForRenameToMigration(TestBase.CollectionName, "name", "productName");
-       MigrationObjects.AddPropertyForRenameToMigration(TestBase.CollectionName, "store.id", "store.code");
-       MigrationObjects.AddPropertyForRenameToMigration(TestBase.CollectionName, "notAField", "name");
-       MigrationObjects.AddPropertyForRemovalToMigration(TestBase.CollectionName, "createdUtc");
+       MigrationObjects.AddPropertyForRenameToMigration("collectionName", "oldFieldName", "newFieldName");
+       MigrationObjects.AddPropertyForRemovalToMigration("collectionName", "fieldName");
    }
 }
 ```
+
+Embedded fields are referenced by the dot notation
+
+```json
+{
+  "type": "Product",
+  "name": "Headphones",
+  "productDetails": {
+    "brand": "JBL",
+    "description": "Bluetooth Headphones"
+  }
+}
+```
+
+To rename/remove fields under productDetails:
+```csharp
+public class ProductMigration : CollectionMigration
+{
+   public override Version Version => new Version(1, 1, 1, 0);
+   public override string Description => "Product migration";
+       
+   public ProductMigration()
+   {
+       MigrationObjects.AddPropertyForRenameToMigration("collectionName", "productDetails.description", "productDetails.features");
+       MigrationObjects.AddPropertyForRemovalToMigration("collectionName", "productDetails.brand");
+   }
+}
+```
+Array fields are referenced by the all positional operator, $[] 
+
+```json
+{
+  "type": "Product",
+  "targetGroup": [
+    {
+      "age": "15-25",
+      "type": "Youngsters"
+    },
+    {
+      "age": "25-45",
+      "type": "Female"
+    }
+  ],
+  "store": {
+    "id": "s01",
+    "sales": [
+      {
+        "franchise": true,
+        "territory": "UK"
+      },
+      {
+        "franchise": false,
+        "territory": "US"
+      }
+    ]
+  },
+  "bestseller":
+  {
+    "models": [
+      {
+        "category": "A",
+        "variants": [
+          {
+            "type": "A",
+            "color": "red",
+            "inStock": true
+          },
+          {
+            "type": "A",
+            "color": "black",
+            "inStock": false
+          }
+        ]
+      },
+      {
+        "category": "B",
+        "variants": [
+          {
+            "type": "B",
+            "color": "blue",
+            "inStock": true
+          },
+          {
+            "type": "B",
+            "color": "white",
+            "inStock": false
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+To rename/remove fields the array fields in the above json:
+```csharp
+public class ProductMigration : CollectionMigration
+{
+   public override Version Version => new Version(1, 1, 1, 0);
+   public override string Description => "Product migration";
+       
+   public ProductMigration()
+   {
+       MigrationFields.AddPropertyForRemovalToMigration("collectionName", "targetGroup.$[].age");
+       MigrationFields.AddPropertyForRemovalToMigration("collectionName", "store.sales.$[].franchise");
+       MigrationFields.AddPropertyForRemovalToMigration("collectionName", "bestseller.models.$[].variants.$[].type");
+
+       MigrationFields.AddPropertyForRenameToMigration("collectionName", "targetGroup.$[].type", "targetGroup.$[].buyer");
+       MigrationFields.AddPropertyForRenameToMigration("collectionName", "store.sales.$[].territory", "store.sales.$[].region");
+       MigrationFields.AddPropertyForRenameToMigration("collectionName", "bestseller.models.$[].variants.$[].inStock", "bestseller.models.$[].variants.$[].isInStock");
+   }
+}
+```
+
+By default while renaming the array fields the values in the old field are also retained. However this process is achieved via looping through each document in the collection and hence can be slow depending upon collection size.
+If you wish to just to rename the field and do not care about the values also to be migrated then override the MigrateArrayValues property and set it to false. The fields will be renamed and its values will be set to null in all the existing documents 
+
+```csharp
+public class NewProductMigration : CollectionMigration
+{
+        public override Version Version => new Version(1, 1, 1, 1);
+        public override string Description => "New Product migration";
+        public override bool MigrateArrayValues { get; } = false;
+
+        public NewProductMigration()
+        {
+            const string collectionName = "newProduct";
+            //Array Fields
+            MigrationFields.AddPropertyForRenameToMigration(collectionName, "targetGroup.$[].type", "targetGroup.$[].buyer");
+            MigrationFields.AddPropertyForRenameToMigration(collectionName, "store.sales.$[].territory", "store.sales.$[].region");
+            MigrationFields.AddPropertyForRenameToMigration(collectionName, "bestseller.models.$[].variants.$[].inStock", "bestseller.models.$[].variants.$[].isInStock");
+        }
+}
+```
+
 Database Migration:
 These are migrations performed on the database to create/rename/drop collection and create/drop indexes. Supply the version number (Semantic Versioning) and an optional description, then simply add to the appropriate migration property to create a dictionary of collection name and fields to create/rename/drop.
 Only add to that dictionary which you need to migrate
@@ -57,14 +190,20 @@ public class DatabaseSetUpMigration : DatabaseMigration
 
     public DatabaseSetUpMigration()
     {
-        CollectionCreationList.Add(TestBase.CollectionName);
-        CreateIndexList.AddToList(TestBase.CollectionName, "name", SortOrder.Ascending);
-        CreateIndexList.AddToList(TestBase.CollectionName, "status", SortOrder.Descending);
-        CreateIndexList.AddToList(TestBase.CollectionName, "store.id", SortOrder.Ascending);
-        CreateIndexList.AddToList(TestBase.CollectionName, new []{ "lastUpdatedUtc" , "_id" }, new[] { SortOrder.Ascending, SortOrder.Ascending
+        CollectionCreationList.Add("collectionName");
+        CreateIndexList.AddToList("collectionName", "fieldName", SortOrder.Ascending);
+        CreateIndexList.AddToList("collectionName", "fieldName", SortOrder.Descending);
+        
+        //reference embedded fiels by dot notation
+        CreateIndexList.AddToList("collectionName", "fieldName.embeddedFieldName", SortOrder.Ascending);
+        
+        //create a compound index by specifying an array of fields and their corresponding sort order
+        CreateIndexList.AddToList(T"collectionName", new []{ "fieldName1" , "fieldName2" }, new[] { SortOrder.Ascending, SortOrder.Ascending
         });
-        CreateIndexList.AddToList(TestBase.CollectionName, new []{ "_id", "lastUpdatedUtc" }, new[] { SortOrder.Ascending, SortOrder.Ascending});
-        CreateExpiryIndexList.AddToList(TestBase.CollectionName, "lastUpdatedUtc", 30);
+        CreateIndexList.AddToList("collectionName", new []{ "fieldName2", "fieldName1" }, new[] { SortOrder.Ascending, SortOrder.Descending});
+        
+        //create expiry index by specifying a datetime fieldName and expiry in days
+        CreateExpiryIndexList.AddToList("collectionName", "fieldName", 30);
     }
 }
 ```
@@ -76,10 +215,10 @@ public class DropMigration : DatabaseMigration
 
     public DropMigration()
     {
-        CollectionDropList.Add("newCollection");
-        CollectionDropList.Add("notACollection");
-        DropIndexList.Add("newCollection1", new List<string> { "newCollection1_name", "newCollection1_status" });
-        DropIndexList.Add("newCollection2", new List<string>());
+        CollectionDropList.Add(""collectionName"");
+        DropIndexList.Add(""collectionName"", new List<string> { "index1_name", "index2_name" });
+        //to drop all the indexes from the collection keep the index list empty. Note that it will however not delete the default index on _id
+        DropIndexList.Add(""collectionName"", new List<string>());
     }
 }
 ```
