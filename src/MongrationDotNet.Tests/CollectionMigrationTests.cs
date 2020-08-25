@@ -10,9 +10,9 @@ namespace MongrationDotNet.Tests
 {
     public class CollectionMigrationTests : TestBase
     {
-        private Version Version => new Version(1, 1, 1, 0);
         private IMongoCollection<MigrationDetails> migrationCollection;
         private IMongoCollection<BsonDocument> productCollection;
+        private Version Version => new Version(1, 1, 1, 0);
 
         [SetUp]
         public void SetupDatabase()
@@ -33,7 +33,7 @@ namespace MongrationDotNet.Tests
         {
             await MigrationRunner.Migrate();
             var result = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty).FirstOrDefaultAsync();
-            
+
             result.ShouldNotBeNull();
             result.Version.ShouldNotBeNull();
             result.Version.ShouldBe(Version);
@@ -43,12 +43,14 @@ namespace MongrationDotNet.Tests
         [Test]
         public async Task Migration_ShouldSkipMigration_WhenMigrationIsAlreadyInProgress()
         {
-            var migrationDetails = new MigrationDetails(Version, Constants.CollectionMigrationType, "product migration");
-        
+            var migrationDetails =
+                new MigrationDetails(Version, Constants.CollectionMigrationType, "product migration");
+
             await migrationCollection.InsertOneAsync(migrationDetails);
-            
+
             await MigrationRunner.Migrate();
-            var result = await migrationCollection.Find(x=> x.Type == Constants.CollectionMigrationType && x.Version == Version).ToListAsync();
+            var result = await migrationCollection
+                .Find(x => x.Type == Constants.CollectionMigrationType && x.Version == Version).ToListAsync();
 
             result.ShouldNotBeNull();
             result.Count.ShouldBe(1);
@@ -57,20 +59,23 @@ namespace MongrationDotNet.Tests
         [Test]
         public async Task Migration_ShouldSkipMigration_WhenMigrationVersionIsAlreadyApplied()
         {
-            var migrationDetails = new MigrationDetails(Version, Constants.CollectionMigrationType, "product migration");
+            var migrationDetails =
+                new MigrationDetails(Version, Constants.CollectionMigrationType, "product migration");
             migrationDetails.MarkCompleted();
-            
+
             await migrationCollection.InsertOneAsync(migrationDetails);
 
             await MigrationRunner.Migrate();
-            var result = await migrationCollection.Find(x => x.Type == Constants.CollectionMigrationType && x.Version == Version).ToListAsync();
+            var result = await migrationCollection
+                .Find(x => x.Type == Constants.CollectionMigrationType && x.Version == Version).ToListAsync();
 
             result.ShouldNotBeNull();
             result.Count.ShouldBe(1);
         }
 
         [Test]
-        public async Task Migration_ShouldExecuteSuccessfullyAndNotThrowError_WhenMigrationObjectListContainsANonExistingField()
+        public async Task
+            Migration_ShouldExecuteSuccessfullyAndNotThrowError_WhenMigrationObjectListContainsANonExistingField()
         {
             await MigrationRunner.Migrate();
             var result = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty).FirstOrDefaultAsync();
@@ -96,8 +101,12 @@ namespace MongrationDotNet.Tests
             await MigrationRunner.Migrate();
             var result = await productCollection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
             var document = result.ToString();
-            document.Contains("\"productDetails\" : { \"description\" : \"Bluetooth Headphones\", \"brand\" : \"JBL\" }").ShouldBeFalse();
-            document.Contains("\"productDetails\" : { \"description\" : \"Bluetooth Headphones\", \"brandName\" : \"JBL\" }").ShouldBeTrue();
+            document.Contains(
+                    "\"productDetails\" : { \"description\" : \"Bluetooth Headphones\", \"brand\" : \"JBL\" }")
+                .ShouldBeFalse();
+            document.Contains(
+                    "\"productDetails\" : { \"description\" : \"Bluetooth Headphones\", \"brandName\" : \"JBL\" }")
+                .ShouldBeTrue();
         }
 
         [Test]
@@ -114,14 +123,15 @@ namespace MongrationDotNet.Tests
         {
             await MigrationRunner.Migrate();
             var result = await productCollection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
-            
+
             AssertArraySchema(result, "targetGroup", "age");
             AssertArraySchema(result, "store.sales", "franchise");
             AssertArraySchema(result, "bestseller.models.variants", "type");
         }
 
         [Test]
-        public async Task Migration_ShouldRenameArrayFieldAndMigrateItsValue_WhenMigrationObjectListContainsArrayFieldsToRenameAndMigrateArrayValuesIsTrue()
+        public async Task
+            Migration_ShouldRenameArrayFieldAndMigrateItsValue_WhenMigrationObjectListContainsArrayFieldsToRenameAndMigrateArrayValuesIsTrue()
         {
             await MigrationRunner.Migrate();
             var result = await productCollection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
@@ -132,7 +142,8 @@ namespace MongrationDotNet.Tests
         }
 
         [Test]
-        public async Task Migration_ShouldRenameArrayFieldAndSetItsValueToNull_WhenMigrationObjectListContainsArrayFieldsToRenameAndMigrateArrayValuesIsFalse()
+        public async Task
+            Migration_ShouldRenameArrayFieldAndSetItsValueToNull_WhenMigrationObjectListContainsArrayFieldsToRenameAndMigrateArrayValuesIsFalse()
         {
             const string collectionName = "newProduct";
 
@@ -142,14 +153,15 @@ namespace MongrationDotNet.Tests
             await MigrationRunner.Migrate();
             var result = await collection.Find(FilterDefinition<BsonDocument>.Empty).FirstOrDefaultAsync();
 
-            AssertArraySchema(result, "targetGroup", "type", "buyer", false);
-            AssertArraySchema(result, "store.sales", "territory", "region", false);
-            AssertArraySchema(result, "bestseller.models.variants", "inStock", "isInStock", false);
+            AssertArraySchema(result, "targetGroup", "type", "buyer");
+            AssertArraySchema(result, "store.sales", "territory", "region");
+            AssertArraySchema(result, "bestseller.models.variants", "inStock", "isInStock");
         }
 
-        private static void AssertArraySchema(BsonDocument document, string arrayName, string oldField, string newField = null, bool checkValueForNotNull = false)
+        private static void AssertArraySchema(BsonDocument document, string arrayName, string oldField,
+            string newField = null, bool checkValueForNotNull = false)
         {
-            var segments = arrayName.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+            var segments = arrayName.Split(new[] {'.'}, StringSplitOptions.RemoveEmptyEntries);
 
             var currentSegmentIndex = 0;
             BsonValue innerDocument = document.AsBsonDocument;
@@ -165,17 +177,19 @@ namespace MongrationDotNet.Tests
                         innerDocument = arrayElement;
                     }
                 }
+
                 currentSegmentIndex += 1;
             }
+
             var array = innerDocument.AsBsonArray;
             foreach (var arrayElement in array)
             {
                 var fieldName = arrayElement.AsBsonValue.ToString();
                 fieldName.ShouldNotContain($"\"{oldField}\" :");
                 if (newField == null) continue;
-                
+
                 fieldName.ShouldContain($"\"{newField}\" :");
-                    
+
                 var fieldValue = arrayElement.AsBsonDocument[newField];
                 if (checkValueForNotNull)
                     string.IsNullOrEmpty(fieldValue.ToString()).ShouldBeFalse();
