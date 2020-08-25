@@ -6,5 +6,6 @@
         public const string CollectionMigrationType = "CollectionMigration";
         public const string DatabaseMigrationType = "DatabaseMigration";
         public const string IndexMigrationType = "IndexMigration";
+        public const string SeedingDataMigrationType = "SeedingDataMigration";
     }
 }
