@@ -21,10 +21,10 @@ namespace SimpleApi
         {
             services.AddControllers();
 
-            var mongoDbConfig = Configuration.GetSection("MongoDB");
-            var mongoOptions = mongoDbConfig.Get<MongoDbOptions>() ?? new MongoDbOptions();
+            var defaultConnection = Configuration.GetConnectionString("DefaultConnection");
+            var databaseName = Configuration.GetConnectionString("DatabaseName");
 
-            services.AddMigration(mongoOptions.Server, mongoOptions.DatabaseName)
+            services.AddMigration(defaultConnection, databaseName)
                 .WithAllAvailableMigrations();
 
             services.AddTransient<IStartupTask, SetupMongoMigration>();

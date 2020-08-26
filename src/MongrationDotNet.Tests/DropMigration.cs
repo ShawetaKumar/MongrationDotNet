@@ -10,11 +10,8 @@ namespace MongrationDotNet.Tests
 
         public override void Prepare()
         {
-            CollectionDropList.Add("myCollection");
-            CollectionDropList.Add("notACollection");
-            DropIndexList.AddToList("newCollection1",
-                new List<string> {"newCollection1_name", "newCollection1_status"});
-            DropIndexList.AddToList("newCollection2", new List<string>());
+            AddCollectionToDrop("myCollection");
+            AddCollectionToDrop("notACollection");
         }
     }
 }

@@ -12,9 +12,9 @@ namespace SimpleApi
 
         public override void Prepare()
         {
-            MigrationFields.AddRenameProperty("name", "productName");
-            MigrationFields.AddRenameProperty("productDetails.brand", "productDetails.brandName");
-            MigrationFields.AddRemoveProperty("createdUtc");
+            AddPropertyRename("name", "productName");
+            AddPropertyRename("productDetails.brand", "productDetails.brandName");
+            AddPropertyRemoval("createdUtc");
         }
     }
 }

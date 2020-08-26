@@ -44,7 +44,7 @@ namespace MongrationDotNet
 
             var migrationTypes = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(assembly => assembly.GetTypes())
-                .Where(type => type.IsSubclassOf(typeof(Migration)) && !type.IsAbstract)
+                .Where(type => typeof(IMigration).IsAssignableFrom(type) && !type.IsAbstract)
                 .ToList();
 
             migrationTypes.ForEach(x => services.AddTransient(typeof(IMigration), x));

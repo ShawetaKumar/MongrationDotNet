@@ -10,6 +10,7 @@ namespace MongrationDotNet
         public abstract Version Version { get; }
         public abstract string Type { get; }
         public virtual string Description { get; }
+        public MigrationDetails MigrationDetails => new MigrationDetails(Version , Type, Description);
 
         public abstract void Prepare();
         public abstract Task ExecuteAsync(IMongoDatabase database, ILogger logger);

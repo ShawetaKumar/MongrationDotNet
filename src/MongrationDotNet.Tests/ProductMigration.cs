@@ -11,20 +11,20 @@ namespace MongrationDotNet.Tests
 
         public override void Prepare()
         {
-            MigrationFields.AddRenameProperty("name", "productName");
-            MigrationFields.AddRenameProperty("productDetails.brand", "productDetails.brandName");
-            MigrationFields.AddRenameProperty("notAField", "name");
-            MigrationFields.AddRemoveProperty("createdUtc");
+            AddPropertyRename("name", "productName");
+            AddPropertyRename("productDetails.brand", "productDetails.brandName");
+            AddPropertyRename("notAField", "name");
+            AddPropertyRemoval("createdUtc");
 
             //Array Fields
-            MigrationFields.AddRenameProperty("targetGroup.$[].type", "targetGroup.$[].buyer");
-            MigrationFields.AddRenameProperty("store.sales.$[].territory", "store.sales.$[].region");
-            MigrationFields.AddRenameProperty("bestseller.models.$[].variants.$[].inStock",
+            AddPropertyRename("targetGroup.$[].type", "targetGroup.$[].buyer");
+            AddPropertyRename("store.sales.$[].territory", "store.sales.$[].region");
+            AddPropertyRename("bestseller.models.$[].variants.$[].inStock",
                 "bestseller.models.$[].variants.$[].isInStock");
 
-            MigrationFields.AddRemoveProperty("targetGroup.$[].age");
-            MigrationFields.AddRemoveProperty("store.sales.$[].franchise");
-            MigrationFields.AddRemoveProperty("bestseller.models.$[].variants.$[].type");
+            AddPropertyRemoval("targetGroup.$[].age");
+            AddPropertyRemoval("store.sales.$[].franchise");
+            AddPropertyRemoval("bestseller.models.$[].variants.$[].type");
         }
     }
 }

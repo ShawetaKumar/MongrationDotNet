@@ -10,7 +10,6 @@ namespace MongrationDotNet
         private readonly IMongoDatabase database;
         private readonly ILogger<MigrationRunner> logger;
         private readonly IEnumerable<IMigration> migrationCollections;
-        private MigrationDetails migrationDetails;
         private IMongoCollection<MigrationDetails> migrationDetailsCollection;
 
         public MigrationRunner(IMongoDatabase database, IEnumerable<IMigration> migrationCollections,
@@ -55,13 +54,12 @@ namespace MongrationDotNet
 
         private async Task SetMigrationInProgress(IMigration migrationCollection)
         {
-            migrationDetails = new MigrationDetails(migrationCollection.Version, migrationCollection.Type,
-                migrationCollection.Description);
-            await migrationDetailsCollection.InsertOneAsync(migrationDetails);
+            await migrationDetailsCollection.InsertOneAsync(migrationCollection.MigrationDetails);
         }
 
         private async Task SetMigrationAsCompleted(IMigration migrationCollection)
         {
+            var migrationDetails = migrationCollection.MigrationDetails;
             migrationDetails.MarkCompleted();
             await migrationDetailsCollection.ReplaceOneAsync(
                 x => x.Type == migrationCollection.Type && x.Version == migrationCollection.Version, migrationDetails,

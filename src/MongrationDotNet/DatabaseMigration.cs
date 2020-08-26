@@ -17,15 +17,6 @@ namespace MongrationDotNet
         public ICollection<string> CollectionDropList { get; } = new List<string>();
         public Dictionary<string, string> CollectionRenameList { get; } = new Dictionary<string, string>();
 
-        public Dictionary<string, ICollection<Dictionary<string, SortOrder>>> CreateIndexList { get; } =
-            new Dictionary<string, ICollection<Dictionary<string, SortOrder>>>();
-
-        public Dictionary<string, Dictionary<string, int>> CreateExpiryIndexList { get; } =
-            new Dictionary<string, Dictionary<string, int>>();
-
-        public Dictionary<string, ICollection<string>> DropIndexList { get; } =
-            new Dictionary<string, ICollection<string>>();
-
         public override async Task ExecuteAsync(IMongoDatabase mongoDatabase, ILogger logger)
         {
             this.logger = logger;
@@ -35,24 +26,6 @@ namespace MongrationDotNet
             foreach (var collectionName in CollectionCreationList)
             {
                 await CreateCollection(collectionName);
-            }
-
-            foreach (var collectionName in CreateIndexList.Keys)
-            {
-                await CreateIndexes(collectionName,
-                    CreateIndexList.GetValueOrDefault(collectionName));
-            }
-
-            foreach (var collectionName in CreateExpiryIndexList.Keys)
-            {
-                await CreateExpiryIndex(collectionName,
-                    CreateExpiryIndexList.GetValueOrDefault(collectionName));
-            }
-
-            foreach (var collectionName in DropIndexList.Keys)
-            {
-                await DropIndexes(collectionName,
-                    DropIndexList.GetValueOrDefault(collectionName));
             }
 
             foreach (var (from, to) in CollectionRenameList)
@@ -110,56 +83,28 @@ namespace MongrationDotNet
             }
         }
 
-        private async Task CreateIndexes(string collectionName,
-            IEnumerable<IDictionary<string, SortOrder>> indexCombinations)
+        public void AddCollectionToCreate(string collectionName)
         {
-            foreach (var indexOnFieldNames in indexCombinations)
-            {
-                logger?.LogInformation(LoggingEvents.ApplyingDatabaseMigration,
-                    "Creating indexes on {fields} on {collection}", string.Join(',', indexOnFieldNames.Keys),
-                    collectionName);
-                var indexKeys = new BsonDocument(indexOnFieldNames.Select(x => new BsonElement(x.Key, x.Value)));
-                var indexName =
-                    $"{collectionName}_{string.Join("-", indexOnFieldNames.Select(x => $"{x.Key}({x.Value})"))}";
-                await database.GetCollection<BsonDocument>(collectionName).Indexes.CreateOneAsync(
-                    new CreateIndexModel<BsonDocument>(indexKeys,
-                        new CreateIndexOptions {Name = indexName}));
-            }
+            if (string.IsNullOrEmpty(collectionName))
+                throw new ArgumentException("Value cannot be null or empty.", nameof(collectionName));
+            
+            if (!CollectionCreationList.Contains(collectionName))
+                CollectionCreationList.Add(collectionName);
         }
 
-        public async Task CreateExpiryIndex(string collectionName, Dictionary<string, int> indexCombinations)
+        public void AddCollectionToDrop(string collectionName)
         {
-            foreach (var fieldName in indexCombinations.Keys)
-            {
-                logger?.LogInformation(LoggingEvents.ApplyingDatabaseMigration,
-                    "Creating expiry index on {filed} on {collection}", fieldName, collectionName);
-                var indexKey = new BsonDocument(fieldName, 1);
-                var indexName = $"{collectionName}_{fieldName}";
-                var collectionExpiryInDays = indexCombinations.GetValueOrDefault(fieldName);
-                await database.GetCollection<BsonDocument>(collectionName).Indexes.CreateOneAsync(
-                    new CreateIndexModel<BsonDocument>(indexKey,
-                        new CreateIndexOptions
-                            {Name = indexName, ExpireAfter = new TimeSpan(collectionExpiryInDays, 0, 0, 0)}));
-            }
+            if (string.IsNullOrEmpty(collectionName))
+                throw new ArgumentException("Value cannot be null or empty.", nameof(collectionName));
+
+            if (!CollectionDropList.Contains(collectionName))
+                CollectionDropList.Add(collectionName);
         }
 
-        private async Task DropIndexes(string collectionName, ICollection<string> indexes)
+        public void AddCollectionForRename(string from, string to)
         {
-            if (!indexes.Any())
-            {
-                logger?.LogInformation(LoggingEvents.ApplyingDatabaseMigration,
-                    "Index list id not specified. Dropping all indexes from {collectionName}", collectionName);
-                await database.GetCollection<BsonDocument>(collectionName).Indexes.DropAllAsync();
-            }
-            else
-            {
-                foreach (var index in indexes)
-                {
-                    logger?.LogInformation(LoggingEvents.ApplyingDatabaseMigration,
-                        "Dropping index {index} from {collectionName}", index, collectionName);
-                    await database.GetCollection<BsonDocument>(collectionName).Indexes.DropOneAsync(index);
-                }
-            }
+            if (!CollectionRenameList.ContainsKey(from))
+                CollectionRenameList.Add(from, to);
         }
     }
 }

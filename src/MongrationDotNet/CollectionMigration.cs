@@ -129,5 +129,19 @@ namespace MongrationDotNet
             document.AsBsonDocument.Add(to, bsonValue.Value);
             document.AsBsonDocument.Remove(from);
         }
+
+        public void AddPropertyRename(string from, string to)
+        {
+            if (string.IsNullOrEmpty(from))
+                throw new ArgumentException("Value cannot be null or empty.", nameof(from));
+            MigrationFields.Add((from, to));
+        }
+
+        public void AddPropertyRemoval(string field)
+        {
+            if (string.IsNullOrEmpty(field))
+                throw new ArgumentException("Value cannot be null or empty.", nameof(field));
+            MigrationFields.Add((field, string.Empty));
+        }
     }
 }

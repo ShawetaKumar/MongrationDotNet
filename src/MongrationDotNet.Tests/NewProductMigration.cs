@@ -12,9 +12,9 @@ namespace MongrationDotNet.Tests
         public override void Prepare()
         {
             //Array Fields
-            MigrationFields.AddRenameProperty("targetGroup.$[].type", "targetGroup.$[].buyer");
-            MigrationFields.AddRenameProperty("store.sales.$[].territory", "store.sales.$[].region");
-            MigrationFields.AddRenameProperty("bestseller.models.$[].variants.$[].inStock",
+            AddPropertyRename("targetGroup.$[].type", "targetGroup.$[].buyer");
+            AddPropertyRename("store.sales.$[].territory", "store.sales.$[].region");
+            AddPropertyRename("bestseller.models.$[].variants.$[].inStock",
                 "bestseller.models.$[].variants.$[].isInStock");
         }
     }
