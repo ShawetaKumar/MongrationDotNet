@@ -5,7 +5,7 @@ namespace SimpleApi
 {
     public class ProductMigration : CollectionMigration
     {
-        public override Version Version => new Version(1, 1, 1, 0);
+        public override Version Version => new Version(1, 1, 1, 2);
         public override string Description => "Product migration";
         public override bool MigrateArrayValues { get; } = true;
         public override string CollectionName => "product";

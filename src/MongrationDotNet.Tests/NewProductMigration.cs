@@ -4,7 +4,7 @@ namespace MongrationDotNet.Tests
 {
     public class NewProductMigration : CollectionMigration
     {
-        public override Version Version => new Version(1, 1, 1, 1);
+        public override Version Version => new Version(1, 1, 1, 5);
         public override string Description => "New Product migration";
         public override bool MigrateArrayValues { get; } = false;
         public override string CollectionName => "newProduct";

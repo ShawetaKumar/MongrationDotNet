@@ -5,7 +5,7 @@ namespace MongrationDotNet.Tests
 {
     public class DropMigration : DatabaseMigration
     {
-        public override Version Version => new Version(1, 1, 1, 1);
+        public override Version Version => new Version(1, 1, 1, 3);
         public override string Description => "Database setup";
 
         public override void Prepare()

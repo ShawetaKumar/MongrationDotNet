@@ -29,8 +29,9 @@ namespace MongrationDotNet
                 logger?.LogInformation(LoggingEvents.MigrationStarted,
                     "Migration started for type: {type}, version: {version} and description: {description} ",
                     migrationCollection.Type, migrationCollection.Version.ToString(), migrationCollection.Description);
+                
                 var latestAppliedMigration = await migrationDetailsCollection
-                    .Find(x => x.Type == migrationCollection.Type && x.Version == migrationCollection.Version)
+                    .Find(x => x.Version == migrationCollection.Version)
                     .FirstOrDefaultAsync();
 
                 if (latestAppliedMigration != null)

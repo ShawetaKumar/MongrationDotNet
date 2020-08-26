@@ -4,7 +4,7 @@ namespace MongrationDotNet.Tests
 {
     public class ProductIndexSetUp : IndexMigration
     {
-        public override Version Version => new Version(1, 1, 1, 0);
+        public override Version Version => new Version(1, 1, 1, 1);
         public override string Description => "Product index creation";
 
         public override string CollectionName => TestBase.CollectionName;

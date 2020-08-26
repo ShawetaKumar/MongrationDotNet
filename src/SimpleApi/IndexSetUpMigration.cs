@@ -5,7 +5,7 @@ namespace SimpleApi
 {
     public class IndexSetUpMigration : IndexMigration
     {
-        public override Version Version => new Version(1, 1, 1, 0);
+        public override Version Version => new Version(1, 1, 1, 1);
         public override string Description => "Database setup";
 
         public override string CollectionName => "product";

@@ -12,7 +12,7 @@ namespace MongrationDotNet.Tests
     {
         private IMongoCollection<MigrationDetails> migrationCollection;
         private IMongoCollection<BsonDocument> productCollection;
-        private Version Version => new Version(1, 1, 1, 0);
+        private Version Version => new Version(1, 1, 1, 4);
 
         [SetUp]
         public void SetupDatabase()
@@ -28,57 +28,12 @@ namespace MongrationDotNet.Tests
             await Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
         }
 
-        [Test]
-        public async Task Migration_ShouldSaveMigrationDetails_WhenMigrationIsApplied()
-        {
-            await MigrationRunner.Migrate();
-            var result = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty).FirstOrDefaultAsync();
-
-            result.ShouldNotBeNull();
-            result.Version.ShouldNotBeNull();
-            result.Version.ShouldBe(Version);
-            result.Status.ShouldBe("Completed");
-        }
-
-        [Test]
-        public async Task Migration_ShouldSkipMigration_WhenMigrationIsAlreadyInProgress()
-        {
-            var migrationDetails =
-                new MigrationDetails(Version, Constants.CollectionMigrationType, "product migration");
-
-            await migrationCollection.InsertOneAsync(migrationDetails);
-
-            await MigrationRunner.Migrate();
-            var result = await migrationCollection
-                .Find(x => x.Type == Constants.CollectionMigrationType && x.Version == Version).ToListAsync();
-
-            result.ShouldNotBeNull();
-            result.Count.ShouldBe(1);
-        }
-
-        [Test]
-        public async Task Migration_ShouldSkipMigration_WhenMigrationVersionIsAlreadyApplied()
-        {
-            var migrationDetails =
-                new MigrationDetails(Version, Constants.CollectionMigrationType, "product migration");
-            migrationDetails.MarkCompleted();
-
-            await migrationCollection.InsertOneAsync(migrationDetails);
-
-            await MigrationRunner.Migrate();
-            var result = await migrationCollection
-                .Find(x => x.Type == Constants.CollectionMigrationType && x.Version == Version).ToListAsync();
-
-            result.ShouldNotBeNull();
-            result.Count.ShouldBe(1);
-        }
-
-        [Test]
+       [Test]
         public async Task
             Migration_ShouldExecuteSuccessfullyAndNotThrowError_WhenMigrationObjectListContainsANonExistingField()
         {
             await MigrationRunner.Migrate();
-            var result = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty).FirstOrDefaultAsync();
+            var result = await migrationCollection.Find(x=> x.Type == Constants.CollectionMigrationType).SortBy(x=>x.Version).FirstOrDefaultAsync();
 
             result.ShouldNotBeNull();
             result.Version.ShouldNotBeNull();

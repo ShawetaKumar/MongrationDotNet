@@ -14,6 +14,8 @@ namespace MongrationDotNet
             Status = "InProgress";
         }
 
+       [BsonId]
+       [BsonRequired]
         public Version Version { get; set; }
         public string Type { get; set; }
         public string Description { get; set; }

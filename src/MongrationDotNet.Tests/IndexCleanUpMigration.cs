@@ -4,7 +4,7 @@ namespace MongrationDotNet.Tests
 {
     public class IndexCleanUpMigration : IndexMigration
     {
-        public override Version Version => new Version(1, 1, 1, 1);
+        public override Version Version => new Version(1, 1, 1, 2);
         public override string Description => "newCollection1: Index cleanup";
 
         public override string CollectionName => "indexCollection";

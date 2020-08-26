@@ -123,7 +123,7 @@ namespace MongrationDotNet.Tests
         public async Task
             Migration_ShouldExecuteSuccessfullyAndNotThrowError_WhenDropListContainsANonExistingCollection()
         {
-            var version = new Version(1, 1, 1, 1);
+            var version = new Version(1, 1, 1, 3);
             await MigrationRunner.Migrate();
 
             var result = await migrationCollection
