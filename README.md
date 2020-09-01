@@ -3,6 +3,7 @@
 This package is used for the migration of MongoDB documents to handle schema changes seamlessly. 
 You need not worry about writing any code of rename/remove fields from your documents. 
 Just create a list with your collection and field names. Provide a version and description and you are set. No need to modify your document schema to have version details.
+Migration version is unique among the different migration types and the versions not applied earlier are only applied. The migration results are saved in the migrationDetails collection. 
 
 # How to use MongrationDotNet
 
@@ -12,7 +13,7 @@ Install the Nuget Package from the Teamcity Nuget feed
 PS> install-package MongrationDotNet
 ```
 
-Add AddMigration in ServiceCollection of your project. You can either pass your IMongoDatabase reference or your MongoDB connection string and database name. It Returns an object of MigrationRunner which will be used to run the migration
+Add AddMigration in ServiceCollection of your project. You can either pass your IMongoDatabase reference or your MongoDB connection string and database name. It Returns an object of MigrationRunner which will be used to run the migration.
 
 
 ```csharp
@@ -27,19 +28,38 @@ public void ConfigureServices(IServiceCollection services)
 }
 ```
 
+You can choose to configure with all the available migrations or only with specific migrations.
+
+```csharp
+public void ConfigureServices(IServiceCollection services)
+{
+    // other dependencies
+    
+    // Add Migration to your available services
+	services.AddMigration("connectionString", "databaseName")
+            .WithAllAvailableMigrations();
+    //or
+    services.AddMigration("connectionString", "databaseName")
+            .With<DatabaseSetUpMigration>()
+            .With<ProductMigration>();
+}
+```
+
+
 Collection Migration:
-These are migrations performed on every document in a given collection. Supply the version number (Semantic Versioning) and an optional description, then simply add to the MigrationFields property to create a dictionary of collection name and fields to rename/remove
+These are migrations performed on every document in a given collection. Specify the collection name, version number (Semantic Versioning) and an optional description, then simply add to the MigrationFields property to create a dictionary of collection name and fields to rename/remove
 
 ```csharp
 public class ProductMigration : CollectionMigration
 {
    public override Version Version => new Version(1, 1, 1, 0);
    public override string Description => "Product migration";
+   public override string CollectionName => "product";
        
-   public ProductMigration()
+   public override void Prepare()
    {
-       MigrationObjects.AddPropertyForRenameToMigration("collectionName", "oldFieldName", "newFieldName");
-       MigrationObjects.AddPropertyForRemovalToMigration("collectionName", "fieldName");
+      AddPropertyRename("name", "productName");
+      AddPropertyRemoval("createdUtc");
    }
 }
 ```
@@ -63,11 +83,12 @@ public class ProductMigration : CollectionMigration
 {
    public override Version Version => new Version(1, 1, 1, 0);
    public override string Description => "Product migration";
+   public override string CollectionName => "product";
        
-   public ProductMigration()
+   public override void Prepare()
    {
-       MigrationObjects.AddPropertyForRenameToMigration("collectionName", "productDetails.description", "productDetails.features");
-       MigrationObjects.AddPropertyForRemovalToMigration("collectionName", "productDetails.brand");
+      AddPropertyRename("productDetails.description", "productDetails.features");
+      AddPropertyRemoval("productDetails.brand");
    }
 }
 ```
@@ -143,17 +164,18 @@ public class ProductMigration : CollectionMigration
 {
    public override Version Version => new Version(1, 1, 1, 0);
    public override string Description => "Product migration";
+   public override string CollectionName => "product";
        
-   public ProductMigration()
+   public override void Prepare()
    {
-       MigrationFields.AddPropertyForRemovalToMigration("collectionName", "targetGroup.$[].age");
-       MigrationFields.AddPropertyForRemovalToMigration("collectionName", "store.sales.$[].franchise");
-       MigrationFields.AddPropertyForRemovalToMigration("collectionName", "bestseller.models.$[].variants.$[].type");
-
-       MigrationFields.AddPropertyForRenameToMigration("collectionName", "targetGroup.$[].type", "targetGroup.$[].buyer");
-       MigrationFields.AddPropertyForRenameToMigration("collectionName", "store.sales.$[].territory", "store.sales.$[].region");
-       MigrationFields.AddPropertyForRenameToMigration("collectionName", "bestseller.models.$[].variants.$[].inStock", "bestseller.models.$[].variants.$[].isInStock");
-   }
+      AddPropertyRemoval("targetGroup.$[].age");
+      AddPropertyRemoval("store.sales.$[].franchise");
+      AddPropertyRemoval("bestseller.models.$[].variants.$[].type");
+      
+      AddPropertyRename("targetGroup.$[].type", "targetGroup.$[].buyer");
+      AddPropertyRename("store.sales.$[].territory", "store.sales.$[].region");
+      AddPropertyRename("bestseller.models.$[].variants.$[].inStock", "bestseller.models.$[].variants.$[].isInStock");
+   }    
 }
 ```
 
@@ -161,26 +183,25 @@ By default while renaming the array fields the values in the old field are also 
 If you wish to just to rename the field and do not care about the values also to be migrated then override the MigrateArrayValues property and set it to false. The fields will be renamed and its values will be set to null in all the existing documents 
 
 ```csharp
-public class NewProductMigration : CollectionMigration
+public class ProductMigration : CollectionMigration
 {
-        public override Version Version => new Version(1, 1, 1, 1);
-        public override string Description => "New Product migration";
-        public override bool MigrateArrayValues { get; } = false;
-
-        public NewProductMigration()
-        {
-            const string collectionName = "newProduct";
-            //Array Fields
-            MigrationFields.AddPropertyForRenameToMigration(collectionName, "targetGroup.$[].type", "targetGroup.$[].buyer");
-            MigrationFields.AddPropertyForRenameToMigration(collectionName, "store.sales.$[].territory", "store.sales.$[].region");
-            MigrationFields.AddPropertyForRenameToMigration(collectionName, "bestseller.models.$[].variants.$[].inStock", "bestseller.models.$[].variants.$[].isInStock");
-        }
+   public override Version Version => new Version(1, 1, 1, 0);
+   public override string Description => "Product migration";
+   public override string CollectionName => "product";
+   public override bool MigrateArrayValues { get; } = false;
+       
+   public override void Prepare()
+   {
+      AddPropertyRename("targetGroup.$[].type", "targetGroup.$[].buyer");
+      AddPropertyRename("store.sales.$[].territory", "store.sales.$[].region");
+      AddPropertyRename("bestseller.models.$[].variants.$[].inStock", "bestseller.models.$[].variants.$[].isInStock");
+   }    
 }
 ```
 
 Database Migration:
-These are migrations performed on the database to create/rename/drop collection and create/drop indexes. Supply the version number (Semantic Versioning) and an optional description, then simply add to the appropriate migration property to create a dictionary of collection name and fields to create/rename/drop.
-Only add to that dictionary which you need to migrate
+These are migrations performed on the database to create/rename/drop collection. Specify the version number (Semantic Versioning) and an optional description, then simply add to the appropriate migration property to create/rename/drop.
+Only add to that list which you need to migrate
 
 ```csharp
 public class DatabaseSetUpMigration : DatabaseMigration
@@ -188,37 +209,41 @@ public class DatabaseSetUpMigration : DatabaseMigration
     public override Version Version => new Version(1, 1, 1, 0);
     public override string Description => "Database setup";
 
-    public DatabaseSetUpMigration()
+    public override void Prepare()
     {
-        CollectionCreationList.Add("collectionName");
-        CreateIndexList.AddToList("collectionName", "fieldName", SortOrder.Ascending);
-        CreateIndexList.AddToList("collectionName", "fieldName", SortOrder.Descending);
-        
-        //reference embedded fiels by dot notation
-        CreateIndexList.AddToList("collectionName", "fieldName.embeddedFieldName", SortOrder.Ascending);
-        
-        //create a compound index by specifying an array of fields and their corresponding sort order
-        CreateIndexList.AddToList(T"collectionName", new []{ "fieldName1" , "fieldName2" }, new[] { SortOrder.Ascending, SortOrder.Ascending
-        });
-        CreateIndexList.AddToList("collectionName", new []{ "fieldName2", "fieldName1" }, new[] { SortOrder.Ascending, SortOrder.Descending});
-        
-        //create expiry index by specifying a datetime fieldName and expiry in days
-        CreateExpiryIndexList.AddToList("collectionName", "fieldName", 30);
+        AddCollectionToCreate("collection1");
+        AddCollectionToCreate("collection2");
+        AddCollectionForRename("oldCollection", "newCollection");
+        AddCollectionToDrop("myCollection");
     }
 }
 ```
+Index Migration:
+These are migrations performed on the database to create/drop indexes. Specify the collection name, version number (Semantic Versioning) and an optional description, then simply add to the appropriate migration property to create/drop index.
+Only add to list dictionary which you need to migrate
+
 ```csharp
-public class DropMigration : DatabaseMigration
+public class ProductIndexSetUp : IndexMigration
 {
     public override Version Version => new Version(1, 1, 1, 1);
-    public override string Description => "Database setup";
+    public override string Description => "Product index setup";
 
-    public DropMigration()
+    public override string CollectionName => "product";
+
+    public override void Prepare()
     {
-        CollectionDropList.Add(""collectionName"");
-        DropIndexList.Add(""collectionName"", new List<string> { "index1_name", "index2_name" });
-        //to drop all the indexes from the collection keep the index list empty. Note that it will however not delete the default index on _id
-        DropIndexList.Add(""collectionName"", new List<string>());
+        AddIndex("name", SortOrder.Ascending);
+        AddIndex("status", SortOrder.Descending);
+        AddIndex("store.id", SortOrder.Ascending);
+        AddIndex(new[] { "lastUpdatedUtc", "_id" },
+            new[] { SortOrder.Ascending, SortOrder.Ascending });
+        AddIndex(new[] { "_id", "lastUpdatedUtc" },
+            new[] { SortOrder.Ascending, SortOrder.Ascending });
+        
+        AddExpiryIndex("lastUpdatedUtc", 30);
+
+        AddToDropIndex("indexName1");
+        AddToDropIndex("indexName2"); 
     }
 }
 ```

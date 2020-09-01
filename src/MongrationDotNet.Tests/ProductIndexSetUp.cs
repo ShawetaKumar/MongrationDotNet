@@ -20,7 +20,5 @@ namespace MongrationDotNet.Tests
                 new[] { SortOrder.Ascending, SortOrder.Ascending });
             AddExpiryIndex("lastUpdatedUtc", 30);
         }
-
-        
     }
 }
