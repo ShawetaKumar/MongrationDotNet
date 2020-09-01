@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Driver;
 
@@ -6,28 +7,58 @@ namespace MongrationDotNet
 {
     public static class ServiceCollectionExtension
     {
-        public static IServiceCollection AddMigration(this IServiceCollection serviceCollection, IMongoDatabase database)
+        public static IServiceCollection AddMigration(this IServiceCollection services, IMongoDatabase database)
         {
-            if (serviceCollection == null) throw new ArgumentNullException(nameof(serviceCollection));
+            if (services == null) throw new ArgumentNullException(nameof(services));
             if (database == null) throw new ArgumentNullException(nameof(database));
 
-            serviceCollection.AddSingleton<IMigrationRunner>(provider => new MigrationRunner(database));
-            return serviceCollection;
+            services.AddSingleton(provider => database);
+            services.AddDependencies();
+            return services;
         }
 
-        public static IServiceCollection AddMigration(this IServiceCollection serviceCollection, string connectionString, string databaseName)
+        public static IServiceCollection AddMigration(this IServiceCollection services, string connectionString,
+            string databaseName)
         {
-            if (serviceCollection == null) throw new ArgumentNullException(nameof(serviceCollection));
+            if (services == null) throw new ArgumentNullException(nameof(services));
             if (string.IsNullOrEmpty(connectionString)) throw new ArgumentNullException(nameof(connectionString));
 
-            serviceCollection.AddSingleton<IMigrationRunner>(provider =>
+            services.AddSingleton(provider =>
             {
                 var client = new MongoClient(connectionString);
                 var database = client.GetDatabase(databaseName);
-                return new MigrationRunner(database);
+                return database;
             });
-            return serviceCollection;
+            services.AddDependencies();
+            return services;
+        }
 
+        private static void AddDependencies(this IServiceCollection services)
+        {
+            services.AddTransient<IMigrationRunner, MigrationRunner>();
+        }
+
+        public static IServiceCollection WithAllAvailableMigrations(this IServiceCollection services)
+        {
+            if (services == null) throw new ArgumentNullException(nameof(services));
+
+            var migrationTypes = AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(assembly => assembly.GetTypes())
+                .Where(type => typeof(IMigration).IsAssignableFrom(type) && !type.IsAbstract)
+                .ToList();
+
+            migrationTypes.ForEach(x => services.AddTransient(typeof(IMigration), x));
+
+            return services;
+        }
+
+        public static IServiceCollection With<T>(this IServiceCollection services) where T : class, IMigration
+        {
+            if (services == null) throw new ArgumentNullException(nameof(services));
+
+            services.AddTransient<IMigration, T>();
+
+            return services;
         }
     }
 }

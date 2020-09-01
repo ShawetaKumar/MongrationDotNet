@@ -2,56 +2,72 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 
 namespace MongrationDotNet
 {
     public abstract class CollectionMigration : Migration
     {
+        private ILogger logger;
         public override string Type { get; } = Constants.CollectionMigrationType;
-        public Dictionary<string, Dictionary<string, string>> MigrationFields { get; } =
-            new Dictionary<string, Dictionary<string, string>>();
-        public virtual bool MigrateArrayValues { get; } = true;
 
-        public override async Task ExecuteAsync(IMongoDatabase database)
+        public ICollection<(string, string)> MigrationFields { get; } =
+            new List<(string, string)>();
+
+        public virtual bool MigrateArrayValues { get; } = true;
+        public abstract string CollectionName { get; }
+
+        public override async Task ExecuteAsync(IMongoDatabase database, ILogger logger)
         {
-            foreach (var collectionName in MigrationFields.Keys)
+            this.logger = logger;
+            logger?.LogInformation(LoggingEvents.CollectionMigrationStarted, "Migration started for {collection}",
+                CollectionName);
+            var collection = database.GetCollection<BsonDocument>(CollectionName);
+            foreach (var (from, to) in MigrationFields)
             {
-                var collection = database.GetCollection<BsonDocument>(collectionName);
-                await MigrateDocumentToNewSchema(collection, MigrationFields.GetValueOrDefault(collectionName));
+                if (string.IsNullOrEmpty(to))
+                    logger?.LogInformation(LoggingEvents.ApplyingCollectionMigration,
+                        "Applying migration on {collection}. Removing field {field}",
+                        CollectionName, from);
+                else
+                    logger?.LogInformation(LoggingEvents.ApplyingCollectionMigration,
+                        "Applying migration on {collection}. Renaming field {from} to {to}",
+                        CollectionName, from, to);
+
+                await MigrateDocumentToNewSchema(collection, from, to);
             }
+
+            logger?.LogInformation(LoggingEvents.CollectionMigrationCompleted, "Migration completed for {collection}",
+                CollectionName);
         }
 
-        private async Task MigrateDocumentToNewSchema(IMongoCollection<BsonDocument> collection, Dictionary<string, string> elements)
+        private async Task MigrateDocumentToNewSchema(IMongoCollection<BsonDocument> collection, string from, string to)
         {
             /*This method migrate all the documents in the collection to the new schema by:
                 1. Rename field to the new desired name
                 2. Remove field from the document
             */
-
-            foreach (var oldElement in elements.Keys)
+            if (to.Contains("$[]"))
             {
-                var newElement = elements.GetValueOrDefault(oldElement);
-                if (newElement.Contains("$[]"))
-                {
-
-                    await RenameArrayFields(collection, oldElement, newElement);
-                    continue;
-                }
-                collection.UpdateMany(FilterDefinition<BsonDocument>.Empty,
-                    !string.IsNullOrEmpty(newElement)
-                        ? Builders<BsonDocument>.Update.Rename(oldElement, newElement)
-                        : Builders<BsonDocument>.Update.Unset(oldElement));
+                await RenameArrayFields(collection, from, to);
+                return;
             }
-            
+
+            collection.UpdateMany(FilterDefinition<BsonDocument>.Empty,
+                !string.IsNullOrEmpty(to)
+                    ? Builders<BsonDocument>.Update.Rename(from, to)
+                    : Builders<BsonDocument>.Update.Unset(from));
         }
 
         private async Task RenameArrayFields(IMongoCollection<BsonDocument> collection, string from, string to)
         {
             if (!MigrateArrayValues)
             {
+                logger?.LogInformation(LoggingEvents.ApplyingCollectionMigration,
+                    "MigrateArrayValues is false. Skipping migrating array values");
+
                 collection.UpdateMany(FilterDefinition<BsonDocument>.Empty,
                     Builders<BsonDocument>.Update.Set(to, BsonValue.Create(null)));
 
@@ -62,20 +78,21 @@ namespace MongrationDotNet
             {
                 from = from.Replace("$[].", "");
                 var documents = await collection.Find(FilterDefinition<BsonDocument>.Empty).ToListAsync();
-                var segments = from.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries); 
-                to = to.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault(); 
+                var segments = from.Split(new[] {'.'}, StringSplitOptions.RemoveEmptyEntries);
+                to = to.Split(new[] {'.'}, StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
 
                 foreach (var document in documents)
                 {
                     document.AsBsonDocument.TryGetElement("_id", out var bsonValue);
                     RenameField(document, segments, 0, to);
                     await collection.ReplaceOneAsync(new BsonDocument("_id", bsonValue.Value), document,
-                        new ReplaceOptions { IsUpsert = true });
+                        new ReplaceOptions {IsUpsert = true});
                 }
             }
         }
 
-        private static void RenameField(BsonValue bsonValue, IReadOnlyList<string> segments, int currentSegmentIndex, string newFieldName)
+        private static void RenameField(BsonValue bsonValue, IReadOnlyList<string> segments, int currentSegmentIndex,
+            string newFieldName)
         {
             while (true)
             {
@@ -110,7 +127,21 @@ namespace MongrationDotNet
             var elementFound = document.AsBsonDocument.TryGetElement(from, out var bsonValue);
             if (!elementFound) return;
             document.AsBsonDocument.Add(to, bsonValue.Value);
-            document.AsBsonDocument.Remove(@from);
+            document.AsBsonDocument.Remove(from);
+        }
+
+        public void AddPropertyRename(string from, string to)
+        {
+            if (string.IsNullOrEmpty(from))
+                throw new ArgumentException("Value cannot be null or empty.", nameof(from));
+            MigrationFields.Add((from, to));
+        }
+
+        public void AddPropertyRemoval(string field)
+        {
+            if (string.IsNullOrEmpty(field))
+                throw new ArgumentException("Value cannot be null or empty.", nameof(field));
+            MigrationFields.Add((field, string.Empty));
         }
     }
 }

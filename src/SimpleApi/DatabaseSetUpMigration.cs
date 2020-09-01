@@ -1,6 +1,7 @@
 using System;
+using MongrationDotNet;
 
-namespace MongrationDotNet.Tests
+namespace SimpleApi
 {
     public class DatabaseSetUpMigration : DatabaseMigration
     {
@@ -9,8 +10,8 @@ namespace MongrationDotNet.Tests
 
         public override void Prepare()
         {
-            AddCollectionToCreate(TestBase.CollectionName);
-            AddCollectionForRename("oldCollection", "newCollection");
+            AddCollectionToCreate("product");
+            AddCollectionToCreate("sales");
         }
     }
 }

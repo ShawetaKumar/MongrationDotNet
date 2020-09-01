@@ -11,9 +11,9 @@ namespace MongrationDotNet.Tests
         private const string NugetPackages = "NUGET_PACKAGES";
         public const string DbName = "dbName";
         public const string CollectionName = "product";
-        public MongoDbRunner runner;
-        public IMigrationRunner MigrationRunner;
         public IMongoDatabase Database;
+        public IMigrationRunner MigrationRunner;
+        public MongoDbRunner runner;
 
 
         [OneTimeSetUp]
@@ -28,13 +28,16 @@ namespace MongrationDotNet.Tests
             {
                 runner ??= MongoDbRunner.Start();
             }
+
             var client = new MongoClient(runner.ConnectionString);
             Database = client.GetDatabase(DbName);
-            
-            var serviceProvider = new ServiceCollection()
-                .AddMigration(Database).BuildServiceProvider(); ;
 
-            MigrationRunner = serviceProvider.GetService<IMigrationRunner>(); ;
+            var serviceProvider = new ServiceCollection()
+                .AddMigration(Database)
+                .WithAllAvailableMigrations()
+                .BuildServiceProvider();
+
+            MigrationRunner = serviceProvider.GetService<IMigrationRunner>();
         }
 
         [OneTimeTearDown]
