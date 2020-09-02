@@ -37,5 +37,10 @@ namespace MongrationDotNet
             logger?.LogInformation(LoggingEvents.SeedingDataMigrationCompleted, "Migration completed for {collection}",
                 CollectionName);
         }
+
+        public void Seed(BsonDocument seed)
+        {
+            Seeds.Add(seed);
+        }
     }
 }

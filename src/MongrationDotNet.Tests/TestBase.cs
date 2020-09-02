@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Mongo2Go;
 using MongoDB.Driver;
@@ -14,6 +15,7 @@ namespace MongrationDotNet.Tests
         public IMongoDatabase Database;
         public IMigrationRunner MigrationRunner;
         public MongoDbRunner runner;
+        public static string FilePath = $"{Directory.GetCurrentDirectory()}//Data//product.json";
 
 
         [OneTimeSetUp]

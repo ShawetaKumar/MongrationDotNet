@@ -17,7 +17,7 @@ namespace MongrationDotNet.Tests
         [SetUp]
         public void SetupDatabase()
         {
-            runner.Import(DbName, CollectionName, $"{Directory.GetCurrentDirectory()}\\Data\\product.json", true);
+            runner.Import(DbName, CollectionName, FilePath, true);
             migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
             productCollection = Database.GetCollection<BsonDocument>(CollectionName);
         }
@@ -102,7 +102,7 @@ namespace MongrationDotNet.Tests
         {
             const string collectionName = "newProduct";
 
-            runner.Import(DbName, collectionName, $"{Directory.GetCurrentDirectory()}\\Data\\product.json", true);
+            runner.Import(DbName, collectionName, FilePath, true);
             var collection = Database.GetCollection<BsonDocument>(collectionName);
 
             await MigrationRunner.Migrate();
