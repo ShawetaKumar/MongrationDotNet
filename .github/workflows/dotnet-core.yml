@@ -21,4 +21,4 @@ jobs:
     - name: Build
       run: dotnet build src/MongrationDotNet/MongrationDotNet.csproj --configuration Release --no-restore
     - name: Test
-      run: dotnet test src/MongrationDotNet.Tests/MongrationDotNet.Tests.csproj --no-restore --verbosity normal
+      run: dotnet test src/MongrationDotNet.Tests/MongrationDotNet.Tests.csproj --verbosity minimal
