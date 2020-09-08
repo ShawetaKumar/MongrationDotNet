@@ -33,7 +33,7 @@ namespace MongrationDotNet.Tests
 
             result.ShouldNotBeNull();
             result.Version.ShouldNotBeNull();
-            result.Status.ShouldBe("Completed");
+            result.Status.ShouldBe(MigrationStatus.Completed);
         }
 
         [Ignore("Enable this after fixing concurrency")]

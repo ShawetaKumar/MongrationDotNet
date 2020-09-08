@@ -4,6 +4,7 @@ namespace SimpleApi
     {
         public string Type { get; set; }
         public string ProductName { get; set; }
+        public int[] Sales { get; set; }
         public TargetGroup[] TargetGroup { get; set; }
     }
 

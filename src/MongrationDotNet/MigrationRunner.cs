@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
@@ -43,13 +44,23 @@ namespace MongrationDotNet
                     continue;
                 }
 
-                await SetMigrationInProgress(migrationCollection);
-                migrationCollection.Prepare();
-                await migrationCollection.ExecuteAsync(database, logger);
-                await SetMigrationAsCompleted(migrationCollection);
-                logger?.LogInformation(LoggingEvents.MigrationCompleted,
-                    "Migration completed type: {type}, version: {version} and description: {description} ",
-                    migrationCollection.Type, migrationCollection.Version.ToString(), migrationCollection.Description);
+                try
+                {
+                    await SetMigrationInProgress(migrationCollection);
+                    migrationCollection.Prepare();
+                    await migrationCollection.ExecuteAsync(database, logger);
+                    await SetMigrationAsCompleted(migrationCollection);
+                    logger?.LogInformation(LoggingEvents.MigrationCompleted,
+                        "Migration completed type: {type}, version: {version} and description: {description} ",
+                        migrationCollection.Type, migrationCollection.Version.ToString(), migrationCollection.Description);
+                }
+                catch (Exception ex)
+                {
+                    await SetMigrationAsErrored(migrationCollection);
+                    logger?.LogError(LoggingEvents.MigrationFailed,
+                        "Migration failed for type: {type}, version: {version} and description: {description} with exception: {exception}",
+                        migrationCollection.Type, migrationCollection.Version.ToString(), migrationCollection.Description, ex.Message);
+                }
             }
         }
 
@@ -65,7 +76,15 @@ namespace MongrationDotNet
             await migrationDetailsCollection.ReplaceOneAsync(
                 x => x.Type == migrationCollection.Type && x.Version == migrationCollection.Version, migrationDetails,
                 new ReplaceOptions {IsUpsert = true});
-            ;
+        }
+
+        private async Task SetMigrationAsErrored(IMigration migrationCollection)
+        {
+            var migrationDetails = migrationCollection.MigrationDetails;
+            migrationDetails.MarkErrored();
+            await migrationDetailsCollection.ReplaceOneAsync(
+                x => x.Type == migrationCollection.Type && x.Version == migrationCollection.Version, migrationDetails,
+                new ReplaceOptions { IsUpsert = true });
         }
     }
 }

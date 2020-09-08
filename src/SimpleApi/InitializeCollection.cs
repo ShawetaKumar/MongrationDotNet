@@ -23,15 +23,24 @@ namespace SimpleApi
         private BsonDocument GetBsonDocument()
         {
             return new BsonDocument {
-                { "type", "product" },
-                { "productName", "Books" },
+                { "Type", "product" },
+                { "ProductName", "Books" },
                 {
-                    "targetGroup",
+                    "Store",
+                    new BsonDocument { { "Id", "1" }, { "Country", "UK" } }
+                },
+                {
+                    "Sales",
+                    new BsonArray {20, 30, 40}
+                },
+                {
+                    "TargetGroup",
                     new BsonArray {
-                        new BsonDocument { { "buyer", "Youngsters" }, { "sellingPitch", "Fiction" } },
-                        new BsonDocument { { "buyer", "Working Professional" }, { "sellingPitch", "Work Life Balance" } }
+                        new BsonDocument { { "Buyer", "Youngsters" }, { "SellingPitch", "Fiction" } },
+                        new BsonDocument { { "Buyer", "Working Professional" }, { "SellingPitch", "Work Life Balance" } }
                     }
-                }, { "class_id", 480 }
+                },
+                { "Rating", "5*" }
             };
         }
         private BsonDocument GetItem()
@@ -40,6 +49,7 @@ namespace SimpleApi
             {
                 Type = "product",
                 ProductName = "Stationary",
+                Sales = new [] {100, 127, 167},
                 TargetGroup = new[]
                 {
                     new TargetGroup
