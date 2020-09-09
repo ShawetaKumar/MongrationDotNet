@@ -30,7 +30,6 @@ namespace SimpleApi
         {
             AddMigrationField("Store.Region", "{ $concat: [ \"North \", \"$Store.Country\" ] }");
             AddMigrationField("Sales", "{ $concatArrays: [ \"$Sales\", [ 55 ] ] }");
-           // AddMigrationField("TargetGroup.$[].Genre", "\"Fiction\"");
             AddMigrationField("Ratings", "[ \"A\", \"B\" , \"$Rating\" ]");
         }
 

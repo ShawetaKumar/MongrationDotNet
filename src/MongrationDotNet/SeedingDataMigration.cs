@@ -22,16 +22,6 @@ namespace MongrationDotNet
                 CollectionName);
 
             var collection = database.GetCollection<BsonDocument>(CollectionName);
-
-            var documentsCount = await collection.Find(FilterDefinition<BsonDocument>.Empty).CountDocumentsAsync();
-
-            if (documentsCount > 0)
-            {
-                logger?.LogInformation("Collection already contains {documentsCount} documents. Seeding Data Migration skipped for {collection}",
-                    documentsCount, CollectionName);
-                return;
-            }
-
             await collection.InsertManyAsync(Seeds);
 
             logger?.LogInformation(LoggingEvents.SeedingDataMigrationCompleted, "Migration completed for {collection}",

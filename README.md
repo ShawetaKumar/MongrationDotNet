@@ -248,6 +248,118 @@ public class ProductIndexSetUp : IndexMigration
 }
 ```
 
+Seeding Migration:
+These are migrations performed on the collection to upload a document to the collection . Specify the collection name, version number (Semantic Versioning) and an optional description, then simply specify the list of the BsonDocuments to be uploaded.  
+
+```csharp
+public class InitializeCollection : SeedingDataMigration
+{
+    public override Version Version => new Version(1, 1, 1, 3);
+    public override string Description => "Upload documents in collection";
+
+    public override string CollectionName => "items";
+
+    public override void Prepare()
+    {
+        var document = GetBsonDocument();
+        var productDocument = GetItem();
+
+        Seed(document);
+        Seed(productDocument);
+    }
+
+    private BsonDocument GetBsonDocument()
+    {
+        return new BsonDocument {
+            { "Type", "product" },
+            { "ProductName", "Books" },
+            {
+                "TargetGroup",
+                new BsonArray {
+                    new BsonDocument { { "Buyer", "Youngsters" }, { "SellingPitch", "Fiction" } },
+                    new BsonDocument { { "Buyer", "Working Professional" }, { "SellingPitch", "Work Life Balance" } }
+                }
+            }
+        };
+    }
+    private BsonDocument GetItem()
+    {
+        return new Item
+        {
+            Type = "product",
+            ProductName = "Stationary",
+            Sales = new [] {100, 127, 167},
+            TargetGroup = new[]
+            {
+                new TargetGroup
+                {
+                    Buyer = "School Kids",
+                    SellingPitch = "Safe Colorful Material"
+                },
+                new TargetGroup
+                {
+                    Buyer = "Working Professional",
+                    SellingPitch = "Durable Material"
+                }
+            }
+        }.ToBsonDocument();
+    }
+}
+```
+
+Document Migration:
+These are migrations performed on the documents of the collection to update the documents to add a new field or replace value of an existing field from the value of an existing field or some static value. You can also provide expression to apply some calculation/method(concat/sum/average) on the values before assigning it to the new field. The update is done via aggregation pipeline so you can also specify your own aggregation pipeline apart from $set/$addfield in the migration. You can also specify the filters on which the update should be applied. If not specified, it will be by default applied to all documents in the collection.   
+
+```csharp
+public class DocumentsUpdate_Revision4 : DocumentMigration
+{
+    public override Version Version => new Version(1, 1, 1, 4);
+    public override string Description => "documents update to new schema";
+    public override string CollectionName => "items";
+
+    public override void Prepare()
+    {
+        AddMigrationField("ProductDetails", "{ $concat: [ \"$Type\", \" - \", \"$ProductName\" ] }");
+        AddMigrationField("ProductType", "\"$Type\"");
+        AddMigrationField("Store.Region", "{ $concat: [ \"North \", \"$Store.Country\" ] }");
+            AddMigrationField("Sales", "{ $concatArrays: [ \"$Sales\", [ 55 ] ] }");
+            AddMigrationField("Ratings", "[ \"A\", \"B\" , \"$Rating\" ]");
+    }
+}
+
+public class DocumentsUpdate_Revision7 : DocumentMigration
+{
+    public override Version Version => new Version(1, 1, 1, 7);
+    public override string Description => "documents update to new schema";
+    public override string CollectionName => "items";
+    public override FilterDefinition<BsonDocument> Filters => BuildFilters();
+    public override PipelineDefinition<BsonDocument, BsonDocument> PipelineDefinition { get; set; }
+
+    public override void Prepare()
+    {
+        PipelineDefinition = BuildPipelineDefinition();
+    }
+
+    private static FilterDefinition<BsonDocument> BuildFilters()
+    {
+        var filterBuilder = new FilterDefinitionBuilder<BsonDocument>();
+        var idFilter = filterBuilder.Eq("ProductName", "Books");
+        var filter = filterBuilder.And(idFilter);
+        return filter;
+    }
+    
+    private static PipelineDefinition<BsonDocument, BsonDocument> BuildPipelineDefinition()
+    {
+        var pipeline = new EmptyPipelineDefinition<BsonDocument>()
+            .AppendStage("{ $addFields: { \"TargetGroup\": { \"$map\": { \"input\": \"$TargetGroup\", \"as\": \"row\", \"in\": { \"Buyer\": \"$$row.Buyer\", \"SellingPitch\": \"$$row.SellingPitch\"," + 
+                            " \"Genre\": \"$$row.SellingPitch\"  } } }}}",
+                BsonDocumentSerializer.Instance)
+            .AppendStage("{ $unset: \"Rating\" }", BsonDocumentSerializer.Instance);
+        return pipeline;
+    }
+}
+```
+
 # How to run the migration
 
 Run the Migrate function on the MigrationRunner object in your startup code
