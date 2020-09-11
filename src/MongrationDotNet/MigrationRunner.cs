@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Medallion.Threading;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
@@ -32,9 +33,15 @@ namespace MongrationDotNet
                     "Migration started for type: {type}, version: {version} and description: {description} ",
                     migration.Type, migration.Version.ToString(), migration.Description);
 
-                var latestAppliedMigration = await migrationDetailsCollection
+                var baseName = $"{migrationCollection.Type}-{migrationCollection.Version}";
+                var lockName = SystemDistributedLock.GetSafeLockName(baseName);
+                var migrationLock = new SystemDistributedLock(lockName);
+
+                using (await migrationLock.AcquireAsync(TimeSpan.FromMinutes(2)))
+                {
+                    var latestAppliedMigration = await migrationDetailsCollection
                     .Find(x => x.Version == migration.Version)
-                    .FirstOrDefaultAsync();
+                        .FirstOrDefaultAsync();
 
                 if (latestAppliedMigration == null || latestAppliedMigration.Status != MigrationStatus.Completed &&
                     migration.RerunMigration)
@@ -59,11 +66,12 @@ namespace MongrationDotNet
                     }
                 }
                 else
-                {
-                    logger?.LogInformation(LoggingEvents.MigrationSkipped,
-                        "Migration has already been applied. Skipped migration for type: {type}, version: {version} and description: {description} ",
+                    {
+                        logger?.LogInformation(LoggingEvents.MigrationSkipped,
+                            "Migration has already been applied. Skipped migration for type: {type}, version: {version} and description: {description} ",
                         migration.Type, migration.Version.ToString(),
                         migration.Description);
+                    }
                 }
             }
         }
