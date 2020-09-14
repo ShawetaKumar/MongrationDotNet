@@ -13,7 +13,7 @@ namespace MongrationDotNet.Tests
         private IMongoCollection<MigrationDetails> migrationCollection;
 
         [SetUp]
-        public void SetupDatabase()
+        public void SetupTests()
         {
             Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
             migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
@@ -26,6 +26,7 @@ namespace MongrationDotNet.Tests
         }
 
         [Test]
+        [Order(1)]
         public async Task Migration_ShouldSaveMigrationDetails_WhenMigrationIsApplied()
         {
             await MigrationRunner.Migrate();
@@ -38,6 +39,20 @@ namespace MongrationDotNet.Tests
 
         [Ignore("These tests are nor running in combination with other tests. Enable this after fixing concurrency")]
         [Test]
+        [Order(2)]
+        public async Task Migration_ShouldApplyAllMigrations_WhenMultipleMigrationExists()
+        {
+            await MigrationRunner.Migrate();
+
+            var migrations = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty)
+                .ToListAsync();
+
+            migrations.ShouldNotBeNull();
+            migrations.Count.ShouldBe(GetTotalMigrationCount());
+        }
+
+        [Test]
+        [Order(3)]
         public async Task Migration_ShouldSkipMigration_WhenMigrationVersionIsAlreadyApplied()
         {
             var version = new Version(1, 1, 1, 0);
@@ -57,21 +72,10 @@ namespace MongrationDotNet.Tests
         }
 
         [Test]
-        public async Task Migration_ShouldApplyAllMigrations_WhenMultipleMigrationExists()
-        {
-            await MigrationRunner.Migrate();
-
-            var migrations = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty)
-                .ToListAsync();
-            
-            migrations.ShouldNotBeNull();
-            migrations.Count.ShouldBe(GetTotalMigrationCount());
-        }
-
-        [Test]
+        [Order(4)]
         public async Task Migration_ShouldBeAppliedOnlyOnce_WhenMultipleTaskRunTheMigration()
         {
-            var tasks = new Task[5];
+            var tasks = new Task[3];
 
             for (var i = 0; i < tasks.Length; i++)
             {

@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using Medallion.Threading;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 
@@ -33,15 +33,9 @@ namespace MongrationDotNet
                     "Migration started for type: {type}, version: {version} and description: {description} ",
                     migration.Type, migration.Version.ToString(), migration.Description);
 
-                var baseName = $"{migrationCollection.Type}-{migrationCollection.Version}";
-                var lockName = SystemDistributedLock.GetSafeLockName(baseName);
-                var migrationLock = new SystemDistributedLock(lockName);
-
-                using (await migrationLock.AcquireAsync(TimeSpan.FromMinutes(2)))
-                {
-                    var latestAppliedMigration = await migrationDetailsCollection
+            var latestAppliedMigration = await migrationDetailsCollection
                     .Find(x => x.Version == migration.Version)
-                        .FirstOrDefaultAsync();
+                    .FirstOrDefaultAsync();
 
                 if (latestAppliedMigration == null || latestAppliedMigration.Status != MigrationStatus.Completed &&
                     migration.RerunMigration)
@@ -66,13 +60,14 @@ namespace MongrationDotNet
                     }
                 }
                 else
-                    {
-                        logger?.LogInformation(LoggingEvents.MigrationSkipped,
-                            "Migration has already been applied. Skipped migration for type: {type}, version: {version} and description: {description} ",
+            {
+                logger?.LogInformation(LoggingEvents.MigrationSkipped,
+                    "Migration has already been applied or in progress. Skipped migration for type: {type}, version: {version} and description: {description} ",
                         migration.Type, migration.Version.ToString(),
                         migration.Description);
-                    }
-                }
+            }
+
+            await SetMigrationInProgress(migrationCollection);
             }
         }
 
@@ -80,10 +75,32 @@ namespace MongrationDotNet
         {
             if(migration.RerunMigration)
                 await migrationDetailsCollection.ReplaceOneAsync(
+            try
+            {
                     x => x.Version == migration.Version, migration.MigrationDetails,
+                await migrationDetailsCollection.InsertOneAsync(migrationCollection.MigrationDetails);
                     new ReplaceOptions { IsUpsert = true });
             else
                 await migrationDetailsCollection.InsertOneAsync(migration.MigrationDetails);
+            }
+            catch (MongoWriteException)
+            {
+               await PollForMigrationStatus(migrationCollection);
+            }
+        }
+
+        private async Task PollForMigrationStatus(IMigration migrationCollection)
+        {
+            MigrationDetails migrationDetails;
+            var counter = 0;
+            do
+            {
+                counter ++;
+                await Task.Delay(5000);
+                migrationDetails = await migrationDetailsCollection
+                    .Find(x => x.Version == migrationCollection.Version && x.Status == "Completed")
+                    .FirstOrDefaultAsync();
+            } while (migrationDetails == null || counter<24);
         }
 
         private async Task SetMigrationAsCompleted(IMigration migration)
