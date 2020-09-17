@@ -6,9 +6,9 @@ using MongrationDotNet;
 
 namespace SimpleApi
 {
-    public class DocumentsUpdate_Revision4 : DocumentMigration
+    public class DocumentsUpdate_Revision5 : DocumentMigration
     {
-        public override Version Version => new Version(1, 1, 1, 4);
+        public override Version Version => new Version(1, 1, 1, 5);
         public override string Description => "documents update to new schema";
         public override string CollectionName => "items";
 
@@ -19,9 +19,9 @@ namespace SimpleApi
         }
     }
 
-    public class DocumentsUpdate_Revision5 : DocumentMigration
+    public class DocumentsUpdate_Revision6 : DocumentMigration
     {
-        public override Version Version => new Version(1, 1, 1, 5);
+        public override Version Version => new Version(1, 1, 1, 6);
         public override string Description => "documents update to new schema";
         public override string CollectionName => "items";
         public override FilterDefinition<BsonDocument> Filters => BuildFilters();
@@ -42,9 +42,9 @@ namespace SimpleApi
         }
     }
 
-    public class DocumentsUpdate_Revision6 : DocumentMigration
+    public class DocumentsUpdate_Revision7 : DocumentMigration
     {
-        public override Version Version => new Version(1, 1, 1, 6);
+        public override Version Version => new Version(1, 1, 1, 7);
         public override string Description => "documents update to new schema";
         public override string CollectionName => "items";
         public override PipelineDefinition<BsonDocument, BsonDocument> PipelineDefinition { get; set; }
@@ -64,9 +64,9 @@ namespace SimpleApi
         }
     }
 
-    public class DocumentsUpdate_Revision7 : DocumentMigration
+    public class DocumentsUpdate_Revision8 : DocumentMigration
     {
-        public override Version Version => new Version(1, 1, 1, 7);
+        public override Version Version => new Version(1, 1, 1, 8);
         public override string Description => "documents update to new schema";
         public override string CollectionName => "items";
         public override PipelineDefinition<BsonDocument, BsonDocument> PipelineDefinition { get; set; }
