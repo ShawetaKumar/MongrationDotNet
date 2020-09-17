@@ -6,7 +6,7 @@ using MongrationDotNet;
 
 namespace SimpleApi
 {
-    public class DocumentsUpdate_Revision5 : DocumentMigration
+    public class ServerSideDocumentsUpdateRevision5 : ServerSideDocumentMigration
     {
         public override Version Version => new Version(1, 1, 1, 5);
         public override string Description => "documents update to new schema";
@@ -19,7 +19,7 @@ namespace SimpleApi
         }
     }
 
-    public class DocumentsUpdate_Revision6 : DocumentMigration
+    public class ServerSideDocumentsUpdateRevision6 : ServerSideDocumentMigration
     {
         public override Version Version => new Version(1, 1, 1, 6);
         public override string Description => "documents update to new schema";
@@ -42,7 +42,7 @@ namespace SimpleApi
         }
     }
 
-    public class DocumentsUpdate_Revision7 : DocumentMigration
+    public class ServerSideDocumentsUpdateRevision7 : ServerSideDocumentMigration
     {
         public override Version Version => new Version(1, 1, 1, 7);
         public override string Description => "documents update to new schema";
@@ -64,7 +64,7 @@ namespace SimpleApi
         }
     }
 
-    public class DocumentsUpdate_Revision8 : DocumentMigration
+    public class ServerSideDocumentsUpdateRevision8 : ServerSideDocumentMigration
     {
         public override Version Version => new Version(1, 1, 1, 8);
         public override string Description => "documents update to new schema";
