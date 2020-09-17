@@ -1,4 +1,4 @@
-namespace MongrationDotNet.Tests
+namespace MongrationDotNet.Tests.Migrations
 {
     public class Item
     {

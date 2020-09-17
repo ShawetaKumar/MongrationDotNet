@@ -1,7 +1,6 @@
 using System;
-using System.Collections.Generic;
 
-namespace MongrationDotNet.Tests
+namespace MongrationDotNet.Tests.Migrations
 {
     public class DropMigration : DatabaseMigration
     {

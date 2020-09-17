@@ -3,9 +3,9 @@ using System.IO;
 using MongoDB.Bson;
 using Newtonsoft.Json;
 
-namespace MongrationDotNet.Tests
+namespace MongrationDotNet.Tests.Migrations
 {
-    public class InitializeItemsCollection : SeedingDataMigration
+    public class InitializeItemsCollection_Revision6 : SeedingDataMigration
     {
         public override Version Version => new Version(1, 1, 1, 6);
         public override string Description => "Upload documents in collection";
