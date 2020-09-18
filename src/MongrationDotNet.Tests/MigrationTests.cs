@@ -16,6 +16,7 @@ namespace MongrationDotNet.Tests
         [SetUp]
         public void SetupDatabase()
         {
+            Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
             migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
         }
 
@@ -33,10 +34,10 @@ namespace MongrationDotNet.Tests
 
             result.ShouldNotBeNull();
             result.Version.ShouldNotBeNull();
-            result.Status.ShouldBe("Completed");
+            result.Status.ShouldBe(MigrationStatus.Completed);
         }
 
-        [Ignore("Enable this after fixing concurrency")]
+        [Ignore("These tests are nor running in combination with other tests. Enable this after fixing concurrency")]
         [Test]
         public async Task Migration_ShouldSkipMigration_WhenMigrationVersionIsAlreadyApplied()
         {
@@ -63,11 +64,73 @@ namespace MongrationDotNet.Tests
                 .SelectMany(assembly => assembly.GetTypes())
                 .Where(type => typeof(IMigration).IsAssignableFrom(type) && !type.IsAbstract)
                 .ToList();
+            
             var migrations = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty)
                 .ToListAsync();
             
             migrations.ShouldNotBeNull();
             migrations.Count.ShouldBe(migrationTypes.Count);
+        }
+
+        [Ignore("These tests are nor running in combination with other tests. Enable this after fixing concurrency")]
+        [Test]
+        public async Task Migration_ShouldSkipMigration_WhenMigrationIsSetForRerunButMigrationVersionIsAlreadyCompleted()
+        {
+            var version = new Version(1, 1, 1, 7);
+            var migrationDetails =
+                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "database setup");
+            migrationDetails.MarkCompleted();
+
+            await migrationCollection.InsertOneAsync(migrationDetails);
+            var savedMigration = await migrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            await MigrationRunner.Migrate();
+            var result = await migrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            result.ShouldNotBeNull();
+            result.UpdatedAt.ShouldBe(savedMigration.UpdatedAt);
+        }
+
+        [Ignore("These tests are nor running in combination with other tests. Enable this after fixing concurrency")]
+        [Test]
+        public async Task Migration_ShouldRerunMigration_WhenMigrationIsSetForRerunAndExistingMigrationVersionInDBIsInProgress()
+        {
+            var version = new Version(1, 1, 1, 7);
+            var migrationDetails =
+                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "database setup");
+
+            await migrationCollection.InsertOneAsync(migrationDetails);
+            var savedMigration = await migrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            await MigrationRunner.Migrate();
+            var result = await migrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            result.ShouldNotBeNull();
+            result.UpdatedAt.ShouldBeGreaterThan(savedMigration.UpdatedAt);
+        }
+
+        [Ignore("These tests are nor running in combination with other tests. Enable this after fixing concurrency")]
+        [Test]
+        public async Task Migration_ShouldRerunMigration_WhenMigrationIsSetForRerunAndExistingMigrationVersionInDBIsErrored()
+        {
+            var version = new Version(1, 1, 1, 7);
+            var migrationDetails =
+                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "database setup");
+            migrationDetails.MarkErrored();
+            await migrationCollection.InsertOneAsync(migrationDetails);
+            var savedMigration = await migrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            await MigrationRunner.Migrate();
+            var result = await migrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            result.ShouldNotBeNull();
+            result.UpdatedAt.ShouldBeGreaterThan(savedMigration.UpdatedAt);
         }
     }
 }

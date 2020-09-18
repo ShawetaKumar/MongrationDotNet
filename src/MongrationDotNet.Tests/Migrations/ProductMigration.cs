@@ -1,6 +1,6 @@
 using System;
 
-namespace MongrationDotNet.Tests
+namespace MongrationDotNet.Tests.Migrations
 {
     public class ProductMigration : CollectionMigration
     {

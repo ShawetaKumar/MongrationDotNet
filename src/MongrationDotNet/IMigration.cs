@@ -10,6 +10,7 @@ namespace MongrationDotNet
         Version Version { get; }
         string Type { get; }
         string Description { get; }
+        bool RerunMigration { get; }
         MigrationDetails MigrationDetails { get; }
         void Prepare();
         Task ExecuteAsync(IMongoDatabase database, ILogger logger);

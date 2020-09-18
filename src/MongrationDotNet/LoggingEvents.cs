@@ -10,6 +10,7 @@ namespace MongrationDotNet
         public static EventId CollectionMigrationStarted = new EventId(0, nameof(CollectionMigrationStarted));
         public static EventId IndexMigrationStarted = new EventId(0, nameof(IndexMigrationStarted));
         public static EventId SeedingDataMigrationStarted = new EventId(0, nameof(SeedingDataMigrationStarted));
+        public static EventId DocumentMigrationStarted = new EventId(0, nameof(DocumentMigrationStarted));
         public static EventId ApplyingDatabaseMigration = new EventId(0, nameof(ApplyingDatabaseMigration));
         public static EventId ApplyingCollectionMigration = new EventId(0, nameof(ApplyingCollectionMigration));
         public static EventId ApplyingIndexMigration = new EventId(0, nameof(ApplyingIndexMigration));
@@ -21,6 +22,7 @@ namespace MongrationDotNet
         public static EventId CollectionMigrationCompleted = new EventId(0, nameof(CollectionMigrationCompleted));
         public static EventId IndexMigrationCompleted = new EventId(0, nameof(IndexMigrationCompleted));
         public static EventId SeedingDataMigrationCompleted = new EventId(0, nameof(SeedingDataMigrationCompleted));
+        public static EventId DocumentMigrationCompleted = new EventId(0, nameof(DocumentMigrationCompleted));
 
         // events due to errors by the application or our dependencies
         public static EventId MigrationFailed = new EventId(0, nameof(MigrationFailed));

@@ -3,9 +3,9 @@ using System.IO;
 using MongoDB.Bson;
 using Newtonsoft.Json;
 
-namespace MongrationDotNet.Tests
+namespace MongrationDotNet.Tests.Migrations
 {
-    public class InitializeItemsCollection : SeedingDataMigration
+    public class InitializeCollection_BsonDocument : SeedingDataMigration<BsonDocument>
     {
         public override Version Version => new Version(1, 1, 1, 6);
         public override string Description => "Upload documents in collection";
@@ -16,13 +16,9 @@ namespace MongrationDotNet.Tests
         {
             var document = GetBsonDocument();
             var jsonParsedDocument = GetBsonDocumentFromJsonFile();
-            var itemDocumentFromFile = GetItemDocumentFromJsonFile();
-            var itemDocument = GetItem();
             
             Seed(document);
             Seed(jsonParsedDocument);
-            Seed(itemDocumentFromFile);
-            Seed(itemDocument);
         }
 
         private BsonDocument GetBsonDocument()
@@ -45,15 +41,32 @@ namespace MongrationDotNet.Tests
             var json = File.ReadAllText(TestBase.FilePath);
             return BsonDocument.Parse(json);
         }
+    }
 
-        private BsonDocument GetItemDocumentFromJsonFile()
+    public class InitializeCollection_Item : SeedingDataMigration<Item>
+    {
+        public override Version Version => new Version(1, 1, 1, 7);
+        public override string Description => "Upload documents in collection";
+        public override bool RerunMigration => true;
+        public override string CollectionName => "items";
+
+        public override void Prepare()
+        {
+            var itemDocumentFromFile = GetItemDocumentFromJsonFile();
+            var itemDocument = GetItem();
+
+            Seed(itemDocumentFromFile);
+            Seed(itemDocument);
+        }
+
+        private Item GetItemDocumentFromJsonFile()
         {
             var item = JsonConvert.DeserializeObject<Item>(File.ReadAllText(TestBase.FilePath));
             item.ProductName = "Camera";
-            return item.ToBsonDocument();
+            return item;
         }
 
-        private BsonDocument GetItem()
+        private Item GetItem()
         {
             return new Item
             {
@@ -72,7 +85,7 @@ namespace MongrationDotNet.Tests
                         SellingPitch = "Durable Material"
                     }
                 }
-            }.ToBsonDocument();
+            };
         }
     }
 }

@@ -248,6 +248,194 @@ public class ProductIndexSetUp : IndexMigration
 }
 ```
 
+Seeding Migration:
+These are migrations performed on the collection to upload a document to the collection . Specify the collection name, version number (Semantic Versioning) and an optional description, then simply specify the list of the BsonDocuments to be uploaded.  
+
+```csharp
+public class InitializeCollection_BsonDocument : SeedingDataMigration<BsonDocument>
+{
+    public override Version Version => new Version(1, 1, 1, 3);
+    public override string Description => "Upload documents in collection";
+
+    public override string CollectionName => "items";
+
+    public override void Prepare()
+    {
+        var document = GetBsonDocument();
+
+        Seed(document);
+    }
+
+    private BsonDocument GetBsonDocument()
+    {
+        return new BsonDocument {
+            { "Type", "product" },
+            { "ProductName", "Books" },
+            {
+                "Store",
+                new BsonDocument { { "Id", "1" }, { "Country", "UK" } }
+            },
+            {
+                "Sales",
+                new BsonArray {20, 30, 40}
+            },
+            {
+                "TargetGroup",
+                new BsonArray {
+                    new BsonDocument { { "Buyer", "Youngsters" }, { "SellingPitch", "Fiction" } },
+                    new BsonDocument { { "Buyer", "Working Professional" }, { "SellingPitch", "Work Life Balance" } }
+                }
+            },
+            { "Rating", "5*" }
+        };
+    }
+}
+
+public class InitializeCollection_Item : SeedingDataMigration<Item>
+{
+    public override Version Version => new Version(1, 1, 1, 4);
+    public override string Description => "Upload documents in collection";
+
+    public override string CollectionName => "items";
+
+    public override void Prepare()
+    {
+        var productDocument = GetItem();
+
+        Seed(productDocument);
+    }
+
+    private Item GetItem()
+    {
+        return new Item
+        {
+            Type = "product",
+            ProductName = "Stationary",
+            Sales = new[] { 100, 127, 167 },
+            TargetGroup = new[]
+            {
+                new TargetGroup
+                {
+                    Buyer = "School Kids",
+                    SellingPitch = "Safe Colorful Material"
+                },
+                new TargetGroup
+                {
+                    Buyer = "Working Professional",
+                    SellingPitch = "Durable Material"
+                }
+            }
+        };
+    }
+}
+```
+
+Document Migration:
+These are migrations performed on the documents of the collection to update the documents to add a new field or replace value of an existing field from the value of an existing field or some static value. DocumentMigration has two types: 
+1. ServerSideDocumentMigration 
+2. ClientSideDocumentMigration
+
+Server Side Documnet Migration:
+In this migration you can specify a static value or provide an expression to apply some calculation/method(concat/sum/average) on the values before assigning it to the new field. The update is done via aggregation pipeline so you can also specify your own aggregation pipeline apart from $set/$addfield in the migration. You can also specify the filters on which the update should be applied. If not specified, it will be by default applied to all documents in the collection.   
+
+```csharp
+public class DocumentsUpdate_Revision4 : ServerSideDocumentMigration
+{
+    public override Version Version => new Version(1, 1, 1, 4);
+    public override string Description => "documents update to new schema";
+    public override string CollectionName => "items";
+
+    public override void Prepare()
+    {
+        AddMigrationField("ProductDetails", "{ $concat: [ \"$Type\", \" - \", \"$ProductName\" ] }");
+        AddMigrationField("ProductType", "\"$Type\"");
+        AddMigrationField("Store.Region", "{ $concat: [ \"North \", \"$Store.Country\" ] }");
+            AddMigrationField("Sales", "{ $concatArrays: [ \"$Sales\", [ 55 ] ] }");
+            AddMigrationField("Ratings", "[ \"A\", \"B\" , \"$Rating\" ]");
+    }
+}
+
+public class DocumentsUpdate_Revision7 : ServerSideDocumentMigration
+{
+    public override Version Version => new Version(1, 1, 1, 7);
+    public override string Description => "documents update to new schema";
+    public override string CollectionName => "items";
+    public override FilterDefinition<BsonDocument> Filters => BuildFilters();
+    public override PipelineDefinition<BsonDocument, BsonDocument> PipelineDefinition { get; set; }
+
+    public override void Prepare()
+    {
+        PipelineDefinition = BuildPipelineDefinition();
+    }
+
+    private static FilterDefinition<BsonDocument> BuildFilters()
+    {
+        var filterBuilder = new FilterDefinitionBuilder<BsonDocument>();
+        var idFilter = filterBuilder.Eq("ProductName", "Books");
+        var filter = filterBuilder.And(idFilter);
+        return filter;
+    }
+    
+    private static PipelineDefinition<BsonDocument, BsonDocument> BuildPipelineDefinition()
+    {
+        var pipeline = new EmptyPipelineDefinition<BsonDocument>()
+            .AppendStage("{ $addFields: { \"TargetGroup\": { \"$map\": { \"input\": \"$TargetGroup\", \"as\": \"row\", \"in\": { \"Buyer\": \"$$row.Buyer\", \"SellingPitch\": \"$$row.SellingPitch\"," + 
+                            " \"Genre\": \"$$row.SellingPitch\"  } } }}}",
+                BsonDocumentSerializer.Instance)
+            .AppendStage("{ $unset: \"Rating\" }", BsonDocumentSerializer.Instance);
+        return pipeline;
+    }
+}
+```
+
+Client Side Documnet Migration:
+This migration can be used if the calculation of the new field value is somewhat complex. This migration is applied by looping through each of the document in the collection.  You can also specify the filters on which the migration should be applied. If not specified, it will be by default applied to all documents in the collection. You need to override the MigrateDocument method to restructure the document. The returned restructed document is then replaced in the collection. You can specify the field which should be used in the replace method filter. If not specified the default filter of _id will be used. By default all the documents are loaded in memory at once but you can override BatchSize property to specify the chunks in which you wish to apply the migration.  
+
+```csharp
+public class ClientSideUpdateDocument : ClientSideDocumentMigration
+{
+    public override Version Version => new Version(1, 1, 1, 9);
+    public override string Description => "Upload documents in collection by restructuring document in client code";
+    public virtual int BatchSize { get; } = 2;
+    public override string CollectionName => "items";
+
+    public override void Prepare()
+    {
+        //No preparation required
+    }
+
+    public override BsonDocument MigrateDocument(BsonDocument document)
+    {
+        document.AsBsonDocument.TryGetElement("TargetGroup", out var element);
+        var bsonValue = element.Value;
+        var updatedValues = new List<string>();
+        if (bsonValue.IsBsonArray)
+        {
+            var array = bsonValue.AsBsonArray;
+            foreach (var arrayElement in array)
+            {
+                arrayElement.AsBsonDocument.TryGetElement("Buyer", out var buyer);
+                arrayElement.AsBsonDocument.TryGetElement("SellingPitch", out var sellingPitch);
+                var newValue = $"{buyer.Value} - {sellingPitch.Value}";
+                updatedValues.Add(newValue);
+            }
+        }
+        document.Set("NewTargetGroup", ToBsonDocumentArray(updatedValues));
+        return document;
+    }
+
+    public static BsonArray ToBsonDocumentArray(List<string> itemList)
+    {
+        var array = new BsonArray();
+        foreach (var item in itemList)
+        {
+            array.Add(item);
+        }
+        return array;
+    }
+}
+```
+
 # How to run the migration
 
 Run the Migrate function on the MigrationRunner object in your startup code
@@ -266,5 +454,16 @@ public class SetupMongoCollectionOnStartup : IStartupTask
     {
         await migrationRunner.Migrate();
     }
+}
+```
+If for any reason the migration fails then that is marked as Errored in DB. However if you wish to rerun the same migration the override the RerunMigration property
+
+```csharp
+public class InitializeCollection : SeedingDataMigration<Item>
+{
+    public override Version Version => new Version(1, 1, 1, 7);
+    public override string Description => "Upload documents in collection";
+    public override bool RerunMigration => true;
+    .....
 }
 ```

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.ComponentModel;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace MongrationDotNet
@@ -11,7 +13,7 @@ namespace MongrationDotNet
             Version = version;
             Type = type;
             Description = description;
-            Status = "InProgress";
+            Status = MigrationStatus.InProgress;
         }
 
        [BsonId]
@@ -19,13 +21,27 @@ namespace MongrationDotNet
         public Version Version { get; set; }
         public string Type { get; set; }
         public string Description { get; set; }
-        public string Status { get; set; }
-        public DateTime AppliedOn { get; set; }
+        [BsonRepresentation(BsonType.String)]
+        public MigrationStatus Status { get; set; }
+        public DateTime UpdatedAt { get; set; }
 
         public void MarkCompleted()
         {
-            Status = "Completed";
-            AppliedOn = DateTime.UtcNow;
+            Status = MigrationStatus.Completed;
+            UpdatedAt = DateTime.UtcNow;
         }
+
+        public void MarkErrored()
+        {
+            Status = MigrationStatus.Errored;
+            UpdatedAt = DateTime.UtcNow;
+        }
+    }
+
+    public enum MigrationStatus
+    {
+        [Description("InProgress")]InProgress,
+        [Description("Completed")] Completed,
+        [Description("Errored")] Errored
     }
 }
