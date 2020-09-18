@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using MongoDB.Bson;
-using Newtonsoft.Json;
 
 namespace MongrationDotNet.Tests.Migrations
 {
@@ -12,6 +10,7 @@ namespace MongrationDotNet.Tests.Migrations
         public override string Description => "Upload documents in collection by restructuring document in client code";
 
         public override string CollectionName => "items";
+        public override int BatchSize => 2;
 
         public override void Prepare()
         {
@@ -23,7 +22,7 @@ namespace MongrationDotNet.Tests.Migrations
             document.AsBsonDocument.TryGetElement("targetGroup", out var element);
             var bsonValue = element.Value;
             var updatedValues = new List<string>();
-            if (bsonValue!=null && bsonValue.IsBsonArray)
+            if (bsonValue != null && bsonValue.IsBsonArray)
             {
                 var array = bsonValue.AsBsonArray;
                 foreach (var arrayElement in array)
@@ -34,6 +33,7 @@ namespace MongrationDotNet.Tests.Migrations
                     updatedValues.Add(newValue);
                 }
             }
+
             document.Set("newTargetGroup", ToBsonDocumentArray(updatedValues));
             return document;
         }
@@ -45,6 +45,7 @@ namespace MongrationDotNet.Tests.Migrations
             {
                 array.Add(item);
             }
+
             return array;
         }
     }

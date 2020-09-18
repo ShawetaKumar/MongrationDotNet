@@ -15,12 +15,12 @@ namespace MongrationDotNet
         public override string Type { get; } = Constants.ServerSideDocumentMigrationType;
 
         public abstract string CollectionName { get; }
-        
+
         public ICollection<(string field, string expression)> MigrationFields { get; } =
             new List<(string, string)>();
 
         public virtual FilterDefinition<BsonDocument> Filters { get; set; } = FilterDefinition<BsonDocument>.Empty;
-        public virtual PipelineDefinition<BsonDocument, BsonDocument> PipelineDefinition{ get; set; }
+        public virtual PipelineDefinition<BsonDocument, BsonDocument> PipelineDefinition { get; set; }
 
 
         public override async Task ExecuteAsync(IMongoDatabase database, ILogger logger)

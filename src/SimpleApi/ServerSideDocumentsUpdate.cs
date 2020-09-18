@@ -57,9 +57,10 @@ namespace SimpleApi
         private static PipelineDefinition<BsonDocument, BsonDocument> BuildPipelineDefinition()
         {
             var pipeline = new EmptyPipelineDefinition<BsonDocument>()
-                               .AppendStage("{ $set: { \"TotalSales\": { $sum: \"$Sales\" }, \"Status\": \"Approved\", LastModified: \"$$NOW\" } }",
-                                   BsonDocumentSerializer.Instance)
-                               .AppendStage("{ $unset: \"Rating\" }", BsonDocumentSerializer.Instance);
+                .AppendStage(
+                    "{ $set: { \"TotalSales\": { $sum: \"$Sales\" }, \"Status\": \"Approved\", LastModified: \"$$NOW\" } }",
+                    BsonDocumentSerializer.Instance)
+                .AppendStage("{ $unset: \"Rating\" }", BsonDocumentSerializer.Instance);
             return pipeline;
         }
     }
@@ -79,8 +80,9 @@ namespace SimpleApi
         private static PipelineDefinition<BsonDocument, BsonDocument> BuildPipelineDefinition()
         {
             var pipeline = new EmptyPipelineDefinition<BsonDocument>()
-                .AppendStage("{ $addFields: { \"TargetGroup\": { \"$map\": { \"input\": \"$TargetGroup\", \"as\": \"row\", \"in\": { \"Buyer\": \"$$row.Buyer\", \"SellingPitch\": \"$$row.SellingPitch\"," + 
-                             " \"Genre\": \"$$row.SellingPitch\"  } } }}}",
+                .AppendStage(
+                    "{ $addFields: { \"TargetGroup\": { \"$map\": { \"input\": \"$TargetGroup\", \"as\": \"row\", \"in\": { \"Buyer\": \"$$row.Buyer\", \"SellingPitch\": \"$$row.SellingPitch\"," +
+                    " \"Genre\": \"$$row.SellingPitch\"  } } }}}",
                     BsonDocumentSerializer.Instance);
             return pipeline;
         }

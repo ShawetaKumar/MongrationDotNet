@@ -8,9 +8,9 @@ namespace MongrationDotNet.Tests
 {
     public class ClientSideDocumentMigrationTests : TestBase
     {
-        private IMongoCollection<MigrationDetails> migrationCollection;
+        private readonly string collectionName = "items";
         private IMongoCollection<BsonDocument> itemCollection;
-        private string collectionName = "items";
+        private IMongoCollection<MigrationDetails> migrationCollection;
 
         [SetUp]
         public void SetupDatabase()

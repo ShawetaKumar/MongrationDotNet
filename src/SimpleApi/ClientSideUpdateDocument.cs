@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using MongoDB.Bson;
 using MongrationDotNet;
@@ -12,6 +11,7 @@ namespace SimpleApi
         public override string Description => "Upload documents in collection by restructuring document in client code";
 
         public override string CollectionName => "items";
+        public override bool RerunMigration => true;
 
         public override void Prepare()
         {
@@ -34,6 +34,7 @@ namespace SimpleApi
                     updatedValues.Add(newValue);
                 }
             }
+
             document.Set("NewTargetGroup", ToBsonDocumentArray(updatedValues));
             return document;
         }
@@ -45,6 +46,7 @@ namespace SimpleApi
             {
                 array.Add(item);
             }
+
             return array;
         }
     }

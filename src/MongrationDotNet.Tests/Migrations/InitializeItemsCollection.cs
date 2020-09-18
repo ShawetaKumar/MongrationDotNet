@@ -47,7 +47,7 @@ namespace MongrationDotNet.Tests.Migrations
     {
         public override Version Version => new Version(1, 1, 1, 7);
         public override string Description => "Upload documents in collection";
-
+        public override bool RerunMigration => true;
         public override string CollectionName => "items";
 
         public override void Prepare()

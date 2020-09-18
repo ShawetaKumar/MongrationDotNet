@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
@@ -17,7 +18,7 @@ namespace MongrationDotNet
             ILogger<MigrationRunner> logger = null)
         {
             this.database = database;
-            this.migrationCollection = migrationCollection;
+            this.migrationCollection = migrationCollection.OrderBy(x=>x.Version);
             this.logger = logger;
         }
 
@@ -30,62 +31,69 @@ namespace MongrationDotNet
                 logger?.LogInformation(LoggingEvents.MigrationStarted,
                     "Migration started for type: {type}, version: {version} and description: {description} ",
                     migration.Type, migration.Version.ToString(), migration.Description);
-                
+
                 var latestAppliedMigration = await migrationDetailsCollection
                     .Find(x => x.Version == migration.Version)
                     .FirstOrDefaultAsync();
 
-                if (latestAppliedMigration != null)
+                if (latestAppliedMigration == null || latestAppliedMigration.Status != MigrationStatus.Completed &&
+                    migration.RerunMigration)
+                {
+                    try
+                    {
+                        await SetMigrationInProgress(migration);
+                        migration.Prepare();
+                        await migration.ExecuteAsync(database, logger);
+                        await SetMigrationAsCompleted(migration);
+                        logger?.LogInformation(LoggingEvents.MigrationCompleted,
+                            "Migration completed type: {type}, version: {version} and description: {description} ",
+                            migration.Type, migration.Version.ToString(), migration.Description);
+                    }
+                    catch (Exception ex)
+                    {
+                        await SetMigrationAsErrored(migration);
+                        logger?.LogError(LoggingEvents.MigrationFailed,
+                            "Migration failed for type: {type}, version: {version} and description: {description} with exception: {exception}. Skipping other migrations.",
+                            migration.Type, migration.Version.ToString(), migration.Description, ex.Message);
+                        break;
+                    }
+                }
+                else
                 {
                     logger?.LogInformation(LoggingEvents.MigrationSkipped,
                         "Migration has already been applied. Skipped migration for type: {type}, version: {version} and description: {description} ",
                         migration.Type, migration.Version.ToString(),
                         migration.Description);
-                    continue;
-                }
-
-                try
-                {
-                    await SetMigrationInProgress(migration);
-                    migration.Prepare();
-                    await migration.ExecuteAsync(database, logger);
-                    await SetMigrationAsCompleted(migration);
-                    logger?.LogInformation(LoggingEvents.MigrationCompleted,
-                        "Migration completed type: {type}, version: {version} and description: {description} ",
-                        migration.Type, migration.Version.ToString(), migration.Description);
-                }
-                catch (Exception ex)
-                {
-                    await SetMigrationAsErrored(migration);
-                    logger?.LogError(LoggingEvents.MigrationFailed,
-                        "Migration failed for type: {type}, version: {version} and description: {description} with exception: {exception}. Skipping other migrations.",
-                        migration.Type, migration.Version.ToString(), migration.Description, ex.Message);
-                    break;
                 }
             }
         }
 
-        private async Task SetMigrationInProgress(IMigration migrationCollection)
+        private async Task SetMigrationInProgress(IMigration migration)
         {
-            await migrationDetailsCollection.InsertOneAsync(migrationCollection.MigrationDetails);
+            if(migration.RerunMigration)
+                await migrationDetailsCollection.ReplaceOneAsync(
+                    x => x.Version == migration.Version, migration.MigrationDetails,
+                    new ReplaceOptions { IsUpsert = true });
+            else
+                await migrationDetailsCollection.InsertOneAsync(migration.MigrationDetails);
         }
 
-        private async Task SetMigrationAsCompleted(IMigration migrationCollection)
+        private async Task SetMigrationAsCompleted(IMigration migration)
         {
-            var migrationDetails = migrationCollection.MigrationDetails;
+            var migrationDetails = migration.MigrationDetails;
             migrationDetails.MarkCompleted();
             await migrationDetailsCollection.ReplaceOneAsync(
-                x => x.Type == migrationCollection.Type && x.Version == migrationCollection.Version, migrationDetails,
+                x => x.Version == migration.Version, migrationDetails,
                 new ReplaceOptions {IsUpsert = true});
         }
 
-        private async Task SetMigrationAsErrored(IMigration migrationCollection)
+        private async Task SetMigrationAsErrored(IMigration migration)
         {
-            var migrationDetails = migrationCollection.MigrationDetails;
+            var migrationDetails = migration.MigrationDetails;
             migrationDetails.MarkErrored();
             await migrationDetailsCollection.ReplaceOneAsync(
-                x => x.Type == migrationCollection.Type && x.Version == migrationCollection.Version, migrationDetails,
-                new ReplaceOptions { IsUpsert = true });
+                x => x.Version == migration.Version, migrationDetails,
+                new ReplaceOptions {IsUpsert = true});
         }
     }
 }
