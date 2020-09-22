@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
 namespace MongrationDotNet
@@ -11,14 +11,16 @@ namespace MongrationDotNet
     public class MigrationRunner : IMigrationRunner
     {
         private readonly IMongoDatabase database;
+        private readonly MigrationConcurrencyOptions migrationConcurrencyOptions;
         private readonly ILogger<MigrationRunner> logger;
         private readonly IEnumerable<IMigration> migrationCollection;
         private IMongoCollection<MigrationDetails> migrationDetailsCollection;
 
-        public MigrationRunner(IMongoDatabase database, IEnumerable<IMigration> migrationCollection,
+        public MigrationRunner(IMongoDatabase database, IEnumerable<IMigration> migrationCollection, IOptions<MigrationConcurrencyOptions> options,
             ILogger<MigrationRunner> logger = null)
         {
             this.database = database;
+            this.migrationConcurrencyOptions = options.Value;
             this.migrationCollection = migrationCollection.OrderBy(x=>x.Version);
             this.logger = logger;
         }
@@ -27,80 +29,98 @@ namespace MongrationDotNet
         {
             migrationDetailsCollection = database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
 
-            foreach (var migration in migrationCollection)
+            try
             {
-                logger?.LogInformation(LoggingEvents.MigrationStarted,
-                    "Migration started for type: {type}, version: {version} and description: {description} ",
-                    migration.Type, migration.Version.ToString(), migration.Description);
-
-            var latestAppliedMigration = await migrationDetailsCollection
-                    .Find(x => x.Version == migration.Version)
-                    .FirstOrDefaultAsync();
-
-                if (latestAppliedMigration == null || latestAppliedMigration.Status != MigrationStatus.Completed &&
-                    migration.RerunMigration)
+                if (await AnyMigrationInProgress())
                 {
-                    try
-                    {
-                        await SetMigrationInProgress(migration);
-                        migration.Prepare();
-                        await migration.ExecuteAsync(database, logger);
-                        await SetMigrationAsCompleted(migration);
-                        logger?.LogInformation(LoggingEvents.MigrationCompleted,
-                            "Migration completed type: {type}, version: {version} and description: {description} ",
-                            migration.Type, migration.Version.ToString(), migration.Description);
-                    }
-                    catch (Exception ex)
-                    {
-                        await SetMigrationAsErrored(migration);
-                        logger?.LogError(LoggingEvents.MigrationFailed,
-                            "Migration failed for type: {type}, version: {version} and description: {description} with exception: {exception}. Skipping other migrations.",
-                            migration.Type, migration.Version.ToString(), migration.Description, ex.Message);
-                        break;
-                    }
+                    await PollForMigrationStatus();
                 }
-                else
-            {
-                logger?.LogInformation(LoggingEvents.MigrationSkipped,
-                    "Migration has already been applied or in progress. Skipped migration for type: {type}, version: {version} and description: {description} ",
-                        migration.Type, migration.Version.ToString(),
-                        migration.Description);
-            }
 
-            await SetMigrationInProgress(migrationCollection);
+                foreach (var migration in migrationCollection)
+                {
+                    logger?.LogInformation(LoggingEvents.MigrationStarted,
+                        "Migration started for type: {type}, version: {version} and description: {description} ",
+                        migration.Type, migration.Version.ToString(), migration.Description);
+
+                    var latestAppliedMigration = await migrationDetailsCollection
+                        .Find(x => x.Version == migration.Version)
+                        .FirstOrDefaultAsync();
+
+                    if (latestAppliedMigration == null || latestAppliedMigration.Status != MigrationStatus.Completed &&
+                        migration.RerunMigration)
+                    {
+                        try
+                        {
+                            await SetMigrationInProgress(migration);
+                            migration.Prepare();
+                            await migration.ExecuteAsync(database, logger);
+                            await SetMigrationAsCompleted(migration);
+                            logger?.LogInformation(LoggingEvents.MigrationCompleted,
+                                "Migration completed type: {type}, version: {version} and description: {description} ",
+                                migration.Type, migration.Version.ToString(), migration.Description);
+                        }
+                        catch (Exception ex)
+                        {
+                            await SetMigrationAsErrored(migration);
+                            logger?.LogError(LoggingEvents.MigrationFailed,
+                                "Migration failed for type: {type}, version: {version} and description: {description} with exception: {exception}. Skipping other migrations.",
+                                migration.Type, migration.Version.ToString(), migration.Description, ex.Message);
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        logger?.LogInformation(LoggingEvents.MigrationSkipped,
+                            "Migration has already been applied or in progress. Skipped migration for type: {type}, version: {version} and description: {description} ",
+                            migration.Type, migration.Version.ToString(),
+                            migration.Description);
+                    }   
+                }
             }
+            catch (Exception ex)
+            {
+                logger?.LogError(LoggingEvents.MigrationFailed,
+                    "Migration failed with exception: {exception}", ex.Message);
+                throw;
+            }
+        }
+
+        private async Task<bool> AnyMigrationInProgress()
+        {
+            var count = await migrationDetailsCollection
+                .CountDocumentsAsync(x => x.Status == MigrationStatus.InProgress);
+            return count > 0;
         }
 
         private async Task SetMigrationInProgress(IMigration migration)
         {
-            if(migration.RerunMigration)
-                await migrationDetailsCollection.ReplaceOneAsync(
             try
             {
-                    x => x.Version == migration.Version, migration.MigrationDetails,
-                await migrationDetailsCollection.InsertOneAsync(migrationCollection.MigrationDetails);
+                if (migration.RerunMigration)
+                    await migrationDetailsCollection.ReplaceOneAsync(x => x.Version == migration.Version, migration.MigrationDetails,
                     new ReplaceOptions { IsUpsert = true });
-            else
-                await migrationDetailsCollection.InsertOneAsync(migration.MigrationDetails);
+                else
+                    await migrationDetailsCollection.InsertOneAsync(migration.MigrationDetails);
             }
             catch (MongoWriteException)
             {
-               await PollForMigrationStatus(migrationCollection);
+               await PollForMigrationStatus();
             }
         }
 
-        private async Task PollForMigrationStatus(IMigration migrationCollection)
+        private async Task PollForMigrationStatus()
         {
-            MigrationDetails migrationDetails;
+            bool migrationInProgress;
             var counter = 0;
             do
             {
                 counter ++;
-                await Task.Delay(5000);
-                migrationDetails = await migrationDetailsCollection
-                    .Find(x => x.Version == migrationCollection.Version && x.Status == "Completed")
-                    .FirstOrDefaultAsync();
-            } while (migrationDetails == null || counter<24);
+                await Task.Delay(migrationConcurrencyOptions.WaitInterval);
+                migrationInProgress = await AnyMigrationInProgress();
+            } while (migrationInProgress && counter < migrationConcurrencyOptions.TimeoutCount);
+            
+            if(migrationInProgress && counter>= migrationConcurrencyOptions.TimeoutCount)
+                throw new TimeoutException("Timing out on waiting for the Migration running on other thread");
         }
 
         private async Task SetMigrationAsCompleted(IMigration migration)

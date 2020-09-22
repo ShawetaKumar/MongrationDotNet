@@ -42,21 +42,6 @@ namespace MongrationDotNet.Tests
         }
 
         [Test]
-        public async Task Migration_ShouldSkipMigration_WhenMigrationVersionIsAlreadyInProgress()
-        {
-            var migrationDetails = new MigrationDetails(Version, Constants.DatabaseMigrationType, "database migration");
-            await migrationCollection.InsertOneAsync(migrationDetails);
-
-            await MigrationRunner.Migrate();
-
-            var result = await migrationCollection
-                .Find(x => x.Version == Version && x.Type == Constants.DatabaseMigrationType).ToListAsync();
-
-            result.ShouldNotBeNull();
-            result.Count.ShouldBe(1);
-        }
-
-        [Test]
         public async Task Migration_ShouldSkipMigration_WhenMigrationVersionIsAlreadyApplied()
         {
             var migrationDetails = new MigrationDetails(Version, Constants.DatabaseMigrationType, "database migration");

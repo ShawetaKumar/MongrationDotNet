@@ -3,7 +3,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using MongoDB.Driver;
 using NUnit.Framework;
-using NUnit.Framework.Internal;
 using Shouldly;
 
 namespace MongrationDotNet.Tests
@@ -37,7 +36,6 @@ namespace MongrationDotNet.Tests
             result.Status.ShouldBe(MigrationStatus.Completed);
         }
 
-        [Ignore("These tests are nor running in combination with other tests. Enable this after fixing concurrency")]
         [Test]
         [Order(2)]
         public async Task Migration_ShouldApplyAllMigrations_WhenMultipleMigrationExists()
@@ -60,7 +58,8 @@ namespace MongrationDotNet.Tests
                 new MigrationDetails(version, Constants.DatabaseMigrationType, "database setup");
             migrationDetails.MarkCompleted();
 
-            await migrationCollection.InsertOneAsync(migrationDetails);
+            await migrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
+                new ReplaceOptions { IsUpsert = true });
 
             await MigrationRunner.Migrate();
             var result = await migrationCollection
@@ -68,11 +67,55 @@ namespace MongrationDotNet.Tests
 
             result.ShouldNotBeNull();
             result.Count.ShouldBe(1);
-            result.Single().Status.ShouldBe("Completed");
+            result.Single().Status.ShouldBe(MigrationStatus.Completed);
         }
 
         [Test]
         [Order(4)]
+        public async Task Migration_ShouldSkipMigration_WhenMigrationIsSetForRerunButMigrationVersionIsAlreadyCompleted()
+        {
+            var version = new Version(1, 1, 1, 7);
+            var migrationDetails =
+                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "database setup");
+            migrationDetails.MarkCompleted();
+
+            await migrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
+                new ReplaceOptions { IsUpsert = true });
+            var savedMigration = await migrationCollection
+                .Find(x => x.Version == version).SingleOrDefaultAsync();
+
+            await MigrationRunner.Migrate();
+            var result = await migrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            result.ShouldNotBeNull();
+            result.UpdatedAt.ShouldBe(savedMigration.UpdatedAt);
+        }
+
+        [Test]
+        [Order(5)]
+        public async Task Migration_ShouldRerunMigration_WhenMigrationIsSetForRerunAndExistingMigrationVersionInDBIsErrored()
+        {
+            var version = new Version(1, 1, 1, 7);
+            var migrationDetails =
+                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "database setup");
+            migrationDetails.MarkErrored();
+            await migrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
+                new ReplaceOptions { IsUpsert = true });
+
+            var savedMigration = await migrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            await MigrationRunner.Migrate();
+            var result = await migrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            result.ShouldNotBeNull();
+            result.UpdatedAt.ShouldBeGreaterThan(savedMigration.UpdatedAt);
+        }
+
+        [Test]
+        [Order(6)]
         public async Task Migration_ShouldBeAppliedOnlyOnce_WhenMultipleTaskRunTheMigration()
         {
             var tasks = new Task[3];
@@ -89,6 +132,19 @@ namespace MongrationDotNet.Tests
 
             migrations.ShouldNotBeNull();
             migrations.Count.ShouldBe(GetTotalMigrationCount());
+        }
+
+        [Test]
+        [Order(7)]
+        public async Task Migration_ShouldThrowException_WhenMigrationIsAlreadyInProgressAndItDoesNotCompleteBeforeTimeout()
+        {
+            var version = new Version(1, 1, 1, 0);
+            var migrationDetails =
+                new MigrationDetails(version, Constants.DatabaseMigrationType, "database setup");
+            await migrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
+                new ReplaceOptions { IsUpsert = true });
+
+            Assert.ThrowsAsync<TimeoutException>(async () => await MigrationRunner.Migrate());
         }
 
         private int GetTotalMigrationCount()
