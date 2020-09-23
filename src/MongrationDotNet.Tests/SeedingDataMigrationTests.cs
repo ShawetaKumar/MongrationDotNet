@@ -9,21 +9,18 @@ namespace MongrationDotNet.Tests
 {
     public class SeedingDataMigrationTests : TestBase
     {
-        private IMongoCollection<MigrationDetails> migrationCollection;
-
         private Version Version => new Version(1, 1, 1, 6);
 
         [SetUp]
         public async Task SetupDatabase()
         {
             await Database.CreateCollectionAsync(CollectionName);
-            migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
         }
 
         [TearDown]
-        public async Task ResetMigrationDetails()
+        public async Task Reset()
         {
-            await Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
+            await ResetMigrationDetails();
         }
 
         [Test]
@@ -31,7 +28,7 @@ namespace MongrationDotNet.Tests
         {
             await MigrationRunner.Migrate();
 
-            var result = await migrationCollection.Find(x => x.Type == Constants.SeedingDataMigrationType)
+            var result = await MigrationCollection.Find(x => x.Type == Constants.SeedingDataMigrationType)
                 .FirstOrDefaultAsync();
 
             result.ShouldNotBeNull();
@@ -44,11 +41,11 @@ namespace MongrationDotNet.Tests
         {
             var migrationDetails = new MigrationDetails(Version, Constants.SeedingDataMigrationType, "initialize database");
             migrationDetails.MarkCompleted();
-            await migrationCollection.InsertOneAsync(migrationDetails);
+            await MigrationCollection.InsertOneAsync(migrationDetails);
 
             await MigrationRunner.Migrate();
 
-            var result = await migrationCollection
+            var result = await MigrationCollection
                 .Find(x => x.Version == Version && x.Type == Constants.SeedingDataMigrationType).ToListAsync();
 
             result.ShouldNotBeNull();

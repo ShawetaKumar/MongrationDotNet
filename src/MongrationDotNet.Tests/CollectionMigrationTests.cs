@@ -10,22 +10,20 @@ namespace MongrationDotNet.Tests
 {
     public class CollectionMigrationTests : TestBase
     {
-        private IMongoCollection<MigrationDetails> migrationCollection;
         private IMongoCollection<BsonDocument> productCollection;
         private Version Version => new Version(1, 1, 1, 4);
 
         [SetUp]
         public void SetupDatabase()
         {
-            runner.Import(DbName, CollectionName, FilePath, true);
-            migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
+            Runner.Import(DbName, CollectionName, FilePath, true);
             productCollection = Database.GetCollection<BsonDocument>(CollectionName);
         }
 
         [TearDown]
-        public async Task ResetMigrationDetails()
+        public async Task Reset()
         {
-            await Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
+            await ResetMigrationDetails();
         }
 
        [Test]
@@ -33,7 +31,7 @@ namespace MongrationDotNet.Tests
             Migration_ShouldExecuteSuccessfullyAndNotThrowError_WhenMigrationObjectListContainsANonExistingField()
         {
             await MigrationRunner.Migrate();
-            var result = await migrationCollection.Find(x=> x.Type == Constants.CollectionMigrationType).SortBy(x=>x.Version).FirstOrDefaultAsync();
+            var result = await MigrationCollection.Find(x=> x.Type == Constants.CollectionMigrationType).SortBy(x=>x.Version).FirstOrDefaultAsync();
 
             result.ShouldNotBeNull();
             result.Version.ShouldNotBeNull();
@@ -102,7 +100,7 @@ namespace MongrationDotNet.Tests
         {
             const string collectionName = "newProduct";
 
-            runner.Import(DbName, collectionName, FilePath, true);
+            Runner.Import(DbName, collectionName, FilePath, true);
             var collection = Database.GetCollection<BsonDocument>(collectionName);
 
             await MigrationRunner.Migrate();

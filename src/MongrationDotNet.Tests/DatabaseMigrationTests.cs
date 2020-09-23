@@ -11,21 +11,18 @@ namespace MongrationDotNet.Tests
 {
     public class DatabaseMigrationTests : TestBase
     {
-        private IMongoCollection<MigrationDetails> migrationCollection;
-
         private Version Version => new Version(1, 1, 1, 0);
 
         [SetUp]
         public async Task SetupDatabase()
         {
             await Database.CreateCollectionAsync(CollectionName);
-            migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
         }
 
         [TearDown]
-        public async Task ResetMigrationDetails()
+        public async Task Reset()
         {
-            await Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
+            await ResetMigrationDetails();
         }
 
         [Test]
@@ -33,7 +30,7 @@ namespace MongrationDotNet.Tests
         {
             await MigrationRunner.Migrate();
 
-            var result = await migrationCollection.Find(x => x.Type == Constants.DatabaseMigrationType)
+            var result = await MigrationCollection.Find(x => x.Type == Constants.DatabaseMigrationType)
                 .FirstOrDefaultAsync();
 
             result.ShouldNotBeNull();
@@ -46,11 +43,11 @@ namespace MongrationDotNet.Tests
         {
             var migrationDetails = new MigrationDetails(Version, Constants.DatabaseMigrationType, "database migration");
             migrationDetails.MarkCompleted();
-            await migrationCollection.InsertOneAsync(migrationDetails);
+            await MigrationCollection.InsertOneAsync(migrationDetails);
 
             await MigrationRunner.Migrate();
 
-            var result = await migrationCollection
+            var result = await MigrationCollection
                 .Find(x => x.Version == Version && x.Type == Constants.DatabaseMigrationType).ToListAsync();
 
             result.ShouldNotBeNull();
@@ -111,7 +108,7 @@ namespace MongrationDotNet.Tests
             var version = new Version(1, 1, 1, 3);
             await MigrationRunner.Migrate();
 
-            var result = await migrationCollection
+            var result = await MigrationCollection
                 .Find(x => x.Version == version && x.Type == Constants.DatabaseMigrationType).FirstOrDefaultAsync();
 
             result.ShouldNotBeNull();

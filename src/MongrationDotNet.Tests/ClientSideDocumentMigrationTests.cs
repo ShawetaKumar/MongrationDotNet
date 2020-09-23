@@ -10,20 +10,18 @@ namespace MongrationDotNet.Tests
     {
         private readonly string collectionName = "item";
         private IMongoCollection<BsonDocument> itemCollection;
-        private IMongoCollection<MigrationDetails> migrationCollection;
 
         [SetUp]
         public void SetupDatabase()
         {
-            runner.Import(DbName, collectionName, FilePath, true);
-            migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
+            Runner.Import(DbName, collectionName, FilePath, true);
             itemCollection = Database.GetCollection<BsonDocument>(collectionName);
         }
 
         [TearDown]
-        public async Task ResetMigrationDetails()
+        public async Task Reset()
         {
-            await Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
+            await ResetMigrationDetails();
         }
 
         [Test]

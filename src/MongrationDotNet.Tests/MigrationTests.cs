@@ -9,19 +9,18 @@ namespace MongrationDotNet.Tests
 {
     public class MigrationTests : TestBase
     {
-        private IMongoCollection<MigrationDetails> migrationCollection;
 
         [SetUp]
-        public void SetupTests()
+        public async Task SetupTests()
         {
-            Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
-            migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
+            await ResetMigrationDetails();
+            await SetupMigrationDetailsCollection();
         }
 
         [TearDown]
-        public void ResetMigrationDetails()
+        public async Task Reset()
         {
-            Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
+            await ResetMigrationDetails();
         }
 
         [Test]
@@ -29,7 +28,7 @@ namespace MongrationDotNet.Tests
         public async Task Migration_ShouldSaveMigrationDetails_WhenMigrationIsApplied()
         {
             await MigrationRunner.Migrate();
-            var result = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty).FirstOrDefaultAsync();
+            var result = await MigrationCollection.Find(FilterDefinition<MigrationDetails>.Empty).FirstOrDefaultAsync();
 
             result.ShouldNotBeNull();
             result.Version.ShouldNotBeNull();
@@ -42,7 +41,7 @@ namespace MongrationDotNet.Tests
         {
             await MigrationRunner.Migrate();
 
-            var migrations = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty)
+            var migrations = await MigrationCollection.Find(FilterDefinition<MigrationDetails>.Empty)
                 .ToListAsync();
 
             migrations.ShouldNotBeNull();
@@ -58,11 +57,11 @@ namespace MongrationDotNet.Tests
                 new MigrationDetails(version, Constants.DatabaseMigrationType, "database setup");
             migrationDetails.MarkCompleted();
 
-            await migrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
+            await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
                 new ReplaceOptions { IsUpsert = true });
 
             await MigrationRunner.Migrate();
-            var result = await migrationCollection
+            var result = await MigrationCollection
                 .Find(x => x.Type == Constants.DatabaseMigrationType && x.Version == version).ToListAsync();
 
             result.ShouldNotBeNull();
@@ -79,13 +78,13 @@ namespace MongrationDotNet.Tests
                 new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "database setup");
             migrationDetails.MarkCompleted();
 
-            await migrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
+            await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
                 new ReplaceOptions { IsUpsert = true });
-            var savedMigration = await migrationCollection
+            var savedMigration = await MigrationCollection
                 .Find(x => x.Version == version).SingleOrDefaultAsync();
 
             await MigrationRunner.Migrate();
-            var result = await migrationCollection
+            var result = await MigrationCollection
                 .Find(x => x.Version == version).FirstOrDefaultAsync();
 
             result.ShouldNotBeNull();
@@ -100,14 +99,14 @@ namespace MongrationDotNet.Tests
             var migrationDetails =
                 new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "database setup");
             migrationDetails.MarkErrored();
-            await migrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
+            await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
                 new ReplaceOptions { IsUpsert = true });
 
-            var savedMigration = await migrationCollection
+            var savedMigration = await MigrationCollection
                 .Find(x => x.Version == version).FirstOrDefaultAsync();
 
             await MigrationRunner.Migrate();
-            var result = await migrationCollection
+            var result = await MigrationCollection
                 .Find(x => x.Version == version).FirstOrDefaultAsync();
 
             result.ShouldNotBeNull();
@@ -127,7 +126,7 @@ namespace MongrationDotNet.Tests
 
             await Task.WhenAll(tasks);
 
-            var migrations = await migrationCollection.Find(FilterDefinition<MigrationDetails>.Empty)
+            var migrations = await MigrationCollection.Find(FilterDefinition<MigrationDetails>.Empty)
                 .ToListAsync();
 
             migrations.ShouldNotBeNull();
@@ -141,7 +140,7 @@ namespace MongrationDotNet.Tests
             var version = new Version(1, 1, 1, 0);
             var migrationDetails =
                 new MigrationDetails(version, Constants.DatabaseMigrationType, "database setup");
-            await migrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
+            await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
                 new ReplaceOptions { IsUpsert = true });
 
             Assert.ThrowsAsync<TimeoutException>(async () => await MigrationRunner.Migrate());
