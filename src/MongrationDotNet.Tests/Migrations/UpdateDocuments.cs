@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MongoDB.Bson;
+using MongoDB.Driver;
 
 namespace MongrationDotNet.Tests.Migrations
 {
@@ -8,9 +9,10 @@ namespace MongrationDotNet.Tests.Migrations
     {
         public override Version Version => new Version(1, 1, 1, 8);
         public override string Description => "Upload documents in collection by restructuring document in client code";
-
-        public override string CollectionName => "items";
+        public override string CollectionName => "item";
         public override int BatchSize => 2;
+        public override bool PageThroughAllFilteredDocuments { get; } = false;
+        public override FilterDefinition<BsonDocument> SearchFilters { get; set; } = "{ \"targetGroup\" : { $exists: true } }";
 
         public override void Prepare()
         {
@@ -35,6 +37,7 @@ namespace MongrationDotNet.Tests.Migrations
             }
 
             document.Set("newTargetGroup", ToBsonDocumentArray(updatedValues));
+            document.Remove("targetGroup");
             return document;
         }
 

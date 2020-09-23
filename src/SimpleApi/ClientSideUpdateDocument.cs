@@ -9,8 +9,8 @@ namespace SimpleApi
     {
         public override Version Version => new Version(1, 1, 1, 9);
         public override string Description => "Upload documents in collection by restructuring document in client code";
-
         public override string CollectionName => "items";
+        public override int BatchSize { get; } = 1;
         public override bool RerunMigration => true;
 
         public override void Prepare()

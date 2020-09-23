@@ -8,7 +8,7 @@ namespace MongrationDotNet.Tests
 {
     public class ClientSideDocumentMigrationTests : TestBase
     {
-        private readonly string collectionName = "items";
+        private readonly string collectionName = "item";
         private IMongoCollection<BsonDocument> itemCollection;
         private IMongoCollection<MigrationDetails> migrationCollection;
 
@@ -36,6 +36,8 @@ namespace MongrationDotNet.Tests
                 document.AsBsonDocument.TryGetElement("newTargetGroup", out var element);
                 element.ShouldNotBeNull();
                 element.Value.AsBsonArray.ShouldNotBeNull();
+                document.AsBsonDocument.TryGetElement("targetGroup", out element);
+                element.Value.ShouldBeNull();
             }
         }
     }
