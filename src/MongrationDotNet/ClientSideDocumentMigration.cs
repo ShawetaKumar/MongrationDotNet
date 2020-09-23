@@ -29,8 +29,8 @@ namespace MongrationDotNet
             do
             {
                 documents = PageThroughAllFilteredDocuments 
-                    ? (await collection.Find(SearchFilters).ToListAsync()).Skip(updated).Take(BatchSize).ToArray() 
-                    : (await collection.Find(SearchFilters).ToListAsync()).Take(BatchSize).ToArray();
+                    ? (await collection.Find(SearchFilters).Skip(updated).Limit(BatchSize).ToListAsync()).ToArray() 
+                    : (await collection.Find(SearchFilters).Limit(BatchSize).ToListAsync()).ToArray();
                 
                 foreach (var document in documents)
                 {
@@ -38,13 +38,13 @@ namespace MongrationDotNet
                     document.AsBsonDocument.TryGetElement(UpdateFilterField, out var bsonValue);
                     await collection.ReplaceOneAsync(new BsonDocument(UpdateFilterField, bsonValue.Value),
                         migratedDocument,
-                        new ReplaceOptions {IsUpsert = true});
+                        new ReplaceOptions {IsUpsert = false});
                     updated++;
                 }
             } while (documents.Any());
 
-            logger?.LogInformation(LoggingEvents.DocumentMigrationCompleted, "Migration completed for {collection}",
-                CollectionName);
+            logger?.LogInformation(LoggingEvents.DocumentMigrationCompleted, "Migration completed for {collection}. {documentsUpdated} documents updated",
+                CollectionName, updated);
         }
 
         public abstract BsonDocument MigrateDocument(BsonDocument document);

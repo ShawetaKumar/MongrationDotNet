@@ -13,7 +13,7 @@ namespace MongrationDotNet.Tests
         private IMongoCollection<MigrationDetails> migrationCollection;
 
         [SetUp]
-        public async Task SetupDatabase()
+        public void SetupDatabase()
         {
             runner.Import(DbName, collectionName, FilePath, true);
             migrationCollection = Database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
