@@ -11,12 +11,11 @@ namespace MongrationDotNet
     {
         public override string Type { get; } = Constants.ClientSideDocumentMigrationType;
         public abstract string CollectionName { get; }
-
         public virtual FilterDefinition<BsonDocument> SearchFilters { get; set; } =
             FilterDefinition<BsonDocument>.Empty;
-
         public virtual string UpdateFilterField { get; } = "_id";
         public virtual int BatchSize { get; } = int.MaxValue;
+        public virtual bool PageThroughAllFilteredDocuments { get; } = true;
 
         public override async Task ExecuteAsync(IMongoDatabase database, ILogger logger)
         {
@@ -29,7 +28,10 @@ namespace MongrationDotNet
             IEnumerable<BsonDocument> documents;
             do
             {
-                documents = (await collection.Find(SearchFilters).ToListAsync()).Skip(updated).Take(BatchSize);
+                documents = PageThroughAllFilteredDocuments 
+                    ? (await collection.Find(SearchFilters).ToListAsync()).Skip(updated).Take(BatchSize).ToArray() 
+                    : (await collection.Find(SearchFilters).ToListAsync()).Take(BatchSize).ToArray();
+                
                 foreach (var document in documents)
                 {
                     var migratedDocument = MigrateDocument(document);
