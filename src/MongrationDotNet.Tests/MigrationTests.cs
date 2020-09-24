@@ -1,9 +1,11 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using MongoDB.Driver;
+using MongrationDotNet.Tests.Migrations;
 using NUnit.Framework;
 using Shouldly;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MongrationDotNet.Tests
 {
@@ -60,13 +62,9 @@ namespace MongrationDotNet.Tests
             await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
                 new ReplaceOptions { IsUpsert = true });
 
-            await MigrationRunner.Migrate();
-            var result = await MigrationCollection
-                .Find(x => x.Type == Constants.DatabaseMigrationType && x.Version == version).ToListAsync();
+            var migrationsApplied = await MigrationRunner.Migrate();
 
-            result.ShouldNotBeNull();
-            result.Count.ShouldBe(1);
-            result.Single().Status.ShouldBe(MigrationStatus.Completed);
+            migrationsApplied.Count(x=>x.Version == version).ShouldBe(0);
         }
 
         [Test]
@@ -80,15 +78,10 @@ namespace MongrationDotNet.Tests
 
             await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
                 new ReplaceOptions { IsUpsert = true });
-            var savedMigration = await MigrationCollection
-                .Find(x => x.Version == version).SingleOrDefaultAsync();
+            
+            var migrationsApplied = await MigrationRunner.Migrate();
 
-            await MigrationRunner.Migrate();
-            var result = await MigrationCollection
-                .Find(x => x.Version == version).FirstOrDefaultAsync();
-
-            result.ShouldNotBeNull();
-            result.UpdatedAt.ShouldBe(savedMigration.UpdatedAt);
+            migrationsApplied.Count(x => x.Version == version).ShouldBe(0);
         }
 
         [Test]
@@ -98,26 +91,29 @@ namespace MongrationDotNet.Tests
             var version = new Version(1, 1, 1, 7);
             var migrationDetails =
                 new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "database setup");
-            migrationDetails.MarkErrored();
+            migrationDetails.MarkErrored("Test ErrorMessage");
             await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
                 new ReplaceOptions { IsUpsert = true });
 
             var savedMigration = await MigrationCollection
                 .Find(x => x.Version == version).FirstOrDefaultAsync();
 
-            await MigrationRunner.Migrate();
+            var migrationsApplied = await MigrationRunner.Migrate();
             var result = await MigrationCollection
                 .Find(x => x.Version == version).FirstOrDefaultAsync();
 
             result.ShouldNotBeNull();
             result.UpdatedAt.ShouldBeGreaterThan(savedMigration.UpdatedAt);
+            result.Status.ShouldBe(MigrationStatus.Completed);
+            result.ErrorMessage.ShouldBeNull();
+            migrationsApplied.Count(x => x.Version == version).ShouldBe(1);
         }
 
         [Test]
         [Order(6)]
         public async Task Migration_ShouldBeAppliedOnlyOnce_WhenMultipleTaskRunTheMigration()
         {
-            var tasks = new Task[3];
+            var tasks = new Task<List<MigrationDetails>>[3];
 
             for (var i = 0; i < tasks.Length; i++)
             {
@@ -131,6 +127,10 @@ namespace MongrationDotNet.Tests
 
             migrations.ShouldNotBeNull();
             migrations.Count.ShouldBe(GetTotalMigrationCount());
+
+            var migrationsApplied = tasks.SelectMany(x => x.Result).ToArray();
+            var distinctVersions = migrationsApplied.Select(x => x.Version).Distinct();
+            distinctVersions.Count().ShouldBe(migrationsApplied.Count());
         }
 
         [Test]
@@ -144,6 +144,19 @@ namespace MongrationDotNet.Tests
                 new ReplaceOptions { IsUpsert = true });
 
             Assert.ThrowsAsync<TimeoutException>(async () => await MigrationRunner.Migrate());
+        }
+
+        [Test]
+        [Order(8)]
+        public async Task Migration_ShouldSaveMigrationDetailsWithError_WhenMigrationGeneratedError()
+        {
+            var version = MigrationForErrorTest.version;
+            await MigrationRunner.Migrate();
+            var result = await MigrationCollection.Find(x=> x.Version == version).SingleOrDefaultAsync();
+
+            result.ShouldNotBeNull();
+            result.ErrorMessage.ShouldNotBeNull();
+            result.Status.ShouldBe(MigrationStatus.Errored);
         }
 
         private int GetTotalMigrationCount()

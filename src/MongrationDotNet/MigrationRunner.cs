@@ -11,24 +11,24 @@ namespace MongrationDotNet
     public class MigrationRunner : IMigrationRunner
     {
         private readonly IMongoDatabase database;
-        private readonly MigrationConcurrencyOptions migrationConcurrencyOptions;
+        private readonly MigrationOptions migrationOptions;
         private readonly ILogger<MigrationRunner> logger;
         private readonly IEnumerable<IMigration> migrationCollection;
         private IMongoCollection<MigrationDetails> migrationDetailsCollection;
 
-        public MigrationRunner(IMongoDatabase database, IEnumerable<IMigration> migrationCollection, IOptions<MigrationConcurrencyOptions> options,
+        public MigrationRunner(IMongoDatabase database, IEnumerable<IMigration> migrationCollection, IOptions<MigrationOptions> options,
             ILogger<MigrationRunner> logger = null)
         {
             this.database = database;
-            this.migrationConcurrencyOptions = options.Value;
+            this.migrationOptions = options.Value;
             this.migrationCollection = migrationCollection.OrderBy(x=>x.Version);
             this.logger = logger;
         }
 
-        public async Task Migrate()
+        public async Task<List<MigrationDetails>> Migrate()
         {
             migrationDetailsCollection = database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
-
+            var migrationsApplied = new List<MigrationDetails>();
             try
             {
                 if (await AnyMigrationInProgress())
@@ -49,23 +49,38 @@ namespace MongrationDotNet
                     if (latestAppliedMigration == null || latestAppliedMigration.Status != MigrationStatus.Completed &&
                         migration.RerunMigration)
                     {
+                        MigrationDetails migrationApplied = null;
                         try
                         {
-                            await SetMigrationInProgress(migration);
+                            var success = await SetMigrationInProgress(migration);
+                            if (!success)
+                                continue;
+                            
                             migration.Prepare();
                             await migration.ExecuteAsync(database, logger);
-                            await SetMigrationAsCompleted(migration);
+                            migrationApplied = await SetMigrationAsCompleted(migration);
                             logger?.LogInformation(LoggingEvents.MigrationCompleted,
                                 "Migration completed type: {type}, version: {version} and description: {description} ",
                                 migration.Type, migration.Version.ToString(), migration.Description);
                         }
+                        catch (TimeoutException ex)
+                        {
+                            logger?.LogError(LoggingEvents.MigrationFailed,
+                                "Migration failed for type: {type}, version: {version} and description: {description} with exception: {exception}.",
+                                migration.Type, migration.Version.ToString(), migration.Description, ex.Message);
+                        }
                         catch (Exception ex)
                         {
-                            await SetMigrationAsErrored(migration);
+                            migrationApplied = await SetMigrationAsErrored(migration, ex.Message);
                             logger?.LogError(LoggingEvents.MigrationFailed,
                                 "Migration failed for type: {type}, version: {version} and description: {description} with exception: {exception}. Skipping other migrations.",
                                 migration.Type, migration.Version.ToString(), migration.Description, ex.Message);
                             break;
+                        }
+                        finally
+                        {
+                            if(migrationApplied != null)
+                                migrationsApplied.Add(migrationApplied);
                         }
                     }
                     else
@@ -76,6 +91,8 @@ namespace MongrationDotNet
                             migration.Description);
                     }   
                 }
+
+                return migrationsApplied;
             }
             catch (Exception ex)
             {
@@ -92,53 +109,65 @@ namespace MongrationDotNet
             return count > 0;
         }
 
-        private async Task SetMigrationInProgress(IMigration migration)
+        private async Task<bool> SetMigrationInProgress(IMigration migration)
         {
             try
             {
                 if (migration.RerunMigration)
-                    await migrationDetailsCollection.ReplaceOneAsync(x => x.Version == migration.Version, migration.MigrationDetails,
-                    new ReplaceOptions { IsUpsert = true });
+                {
+                    DeleteResult result = null;
+                    var previousRun = await migrationDetailsCollection.Find(x => x.Version == migration.Version).SingleOrDefaultAsync();
+                    if(previousRun != null)
+                        result = await migrationDetailsCollection.DeleteOneAsync(x => x.Version == migration.Version);
+                    if(previousRun == null || result?.DeletedCount == 1)
+                        await migrationDetailsCollection.InsertOneAsync(migration.MigrationDetails);
+                }
                 else
                     await migrationDetailsCollection.InsertOneAsync(migration.MigrationDetails);
+                return true;
             }
             catch (MongoWriteException)
             {
-               await PollForMigrationStatus();
+                await PollForMigrationStatus();
+                return false;
             }
-        }
-
-        private async Task PollForMigrationStatus()
-        {
-            bool migrationInProgress;
-            var counter = 0;
-            do
-            {
-                counter ++;
-                await Task.Delay(migrationConcurrencyOptions.WaitInterval);
-                migrationInProgress = await AnyMigrationInProgress();
-            } while (migrationInProgress && counter < migrationConcurrencyOptions.TimeoutCount);
             
-            if(migrationInProgress && counter>= migrationConcurrencyOptions.TimeoutCount)
-                throw new TimeoutException("Timing out on waiting for the Migration running on other thread");
         }
 
-        private async Task SetMigrationAsCompleted(IMigration migration)
+        private async Task<MigrationDetails> SetMigrationAsCompleted(IMigration migration)
         {
             var migrationDetails = migration.MigrationDetails;
             migrationDetails.MarkCompleted();
             await migrationDetailsCollection.ReplaceOneAsync(
                 x => x.Version == migration.Version, migrationDetails,
-                new ReplaceOptions {IsUpsert = true});
+                new ReplaceOptions {IsUpsert = false});
+            return migrationDetails;
         }
 
-        private async Task SetMigrationAsErrored(IMigration migration)
+        private async Task<MigrationDetails> SetMigrationAsErrored(IMigration migration, string errorMessage)
         {
             var migrationDetails = migration.MigrationDetails;
-            migrationDetails.MarkErrored();
+            migrationDetails.MarkErrored(errorMessage);
             await migrationDetailsCollection.ReplaceOneAsync(
                 x => x.Version == migration.Version, migrationDetails,
-                new ReplaceOptions {IsUpsert = true});
+                new ReplaceOptions {IsUpsert = false});
+            return migrationDetails;
+        }
+
+        private async Task PollForMigrationStatus()
+        {
+            var pollingInterval = TimeSpan.FromMilliseconds(migrationOptions.MigrationProgressDbPollingInterval);
+            var pollingTimeout = TimeSpan.FromMilliseconds(migrationOptions.MigrationProgressDbPollingTimeout);
+            bool migrationInProgress;
+            var start = DateTime.UtcNow;
+            do
+            {
+                await Task.Delay(pollingInterval);
+                migrationInProgress = await AnyMigrationInProgress();
+            } while (migrationInProgress && DateTime.UtcNow - start < pollingTimeout);
+
+            if (migrationInProgress && DateTime.UtcNow - start > pollingTimeout)
+                throw new TimeoutException("Timing out on waiting for the Migration running on other thread");
         }
     }
 }

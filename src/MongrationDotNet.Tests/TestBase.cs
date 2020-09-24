@@ -39,10 +39,10 @@ namespace MongrationDotNet.Tests
             Database = client.GetDatabase(DbName);
 
             var serviceProvider = new ServiceCollection()
-                .Configure<MigrationConcurrencyOptions>(options =>
+                .Configure<MigrationOptions>(options =>
                 {
-                    options.WaitInterval = 500;
-                    options.TimeoutCount = 5;
+                    options.MigrationProgressDbPollingInterval = 500;
+                    options.MigrationProgressDbPollingTimeout = 2500;
                 })
                 .AddMigration(Database)
                 .WithAllAvailableMigrations()

@@ -23,6 +23,7 @@ namespace MongrationDotNet
         public string Description { get; set; }
         [BsonRepresentation(BsonType.String)]
         public MigrationStatus Status { get; set; }
+        public string ErrorMessage { get; set; }
         public DateTime UpdatedAt { get; set; }
 
         public void MarkCompleted()
@@ -31,10 +32,11 @@ namespace MongrationDotNet
             UpdatedAt = DateTime.UtcNow;
         }
 
-        public void MarkErrored()
+        public void MarkErrored(string errorMessage)
         {
             Status = MigrationStatus.Errored;
             UpdatedAt = DateTime.UtcNow;
+            ErrorMessage = errorMessage;
         }
     }
 

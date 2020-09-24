@@ -24,7 +24,7 @@ namespace SimpleApi
             var defaultConnection = Configuration.GetConnectionString("DefaultConnection");
             var databaseName = Configuration.GetConnectionString("DatabaseName");
 
-            services.Configure<MigrationConcurrencyOptions>(Configuration.GetSection("MigrationConcurrencyOptions"));
+            services.Configure<MigrationOptions>(Configuration.GetSection("MigrationOptions"));
             services.AddMigration(defaultConnection, databaseName)
                 .WithAllAvailableMigrations();
 
