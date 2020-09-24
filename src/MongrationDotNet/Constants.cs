@@ -1,5 +1,8 @@
 ﻿namespace MongrationDotNet
 {
+    /// <summary>
+    /// Constants for different migration types
+    /// </summary>
     public static class Constants
     {
         public const string MigrationDetailsCollection = "migrationDetails";

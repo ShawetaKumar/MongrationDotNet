@@ -8,6 +8,10 @@ using MongoDB.Driver;
 
 namespace MongrationDotNet
 {
+    /// <summary>
+    /// These are migrations performed on the database to create/drop indexes
+    /// Add to the appropriate migration property to create/drop index
+    /// </summary>
     public abstract class IndexMigration : Migration
     {
         private IMongoDatabase database;
@@ -87,11 +91,21 @@ namespace MongrationDotNet
             }
         }
 
+        /// <summary>
+        /// Adds to the list for creating index
+        /// </summary>
+        /// <param name="field">field name on which index is to be created</param>
+        /// <param name="sortOrder">sort order for the index</param>
         public void AddIndex(string field, SortOrder sortOrder)
         {
             IndexCreationList.Add(new Dictionary<string, SortOrder> { { field, sortOrder } });
         }
 
+        /// <summary>
+        /// Adds to the list for creating compound index on two or more fields
+        /// </summary>
+        /// <param name="fields">array for fields for compound index</param>
+        /// <param name="sortOrder">array for sort order for compound index</param>
         public void AddIndex(string[] fields, SortOrder[] sortOrder)
         {
             var indexCombinations = new Dictionary<string, SortOrder>();
@@ -102,11 +116,20 @@ namespace MongrationDotNet
             IndexCreationList.Add(indexCombinations);
         }
 
+        /// <summary>
+        /// Adds to the index creation list for creating expiry index
+        /// </summary>
+        /// <param name="field">field name on which index is to be created</param>
+        /// <param name="expiryInDays">expiry in days</param>
         public void AddExpiryIndex(string field, int expiryInDays)
         {
             ExpiryIndexList.Add((field, expiryInDays));
         }
 
+        /// <summary>
+        /// Adds to the index drop list
+        /// </summary>
+        /// <param name="field">field name from which index is to be dropped</param>
         public void AddToDropIndex(string field)
         {
             IndexDropList.Add(field);

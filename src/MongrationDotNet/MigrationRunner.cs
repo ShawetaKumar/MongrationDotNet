@@ -25,6 +25,10 @@ namespace MongrationDotNet
             this.logger = logger;
         }
 
+      /// <summary>
+      /// Method which executes the whole migration process
+      /// </summary>
+      /// <returns>List of all Migrations applied. Migrations which gets skipped are excluded</returns>
         public async Task<List<MigrationDetails>> Migrate()
         {
             migrationDetailsCollection = database.GetCollection<MigrationDetails>(Constants.MigrationDetailsCollection);
@@ -109,25 +113,44 @@ namespace MongrationDotNet
             return count > 0;
         }
 
+       /// <summary>
+       /// Sets migration is progress
+       /// If any other node is running the migration the calling node will poll till migration is completed or till timeout 
+       /// </summary>
+       /// <param name="migration">Migration to start</param>
+       /// <returns></returns>
         private async Task<bool> SetMigrationInProgress(IMigration migration)
         {
             try
             {
+                var setToProgressSuccessfully = false;
+                //if migration is set to rerun after previous run
                 if (migration.RerunMigration)
                 {
                     DeleteResult result = null;
                     var previousRun = await migrationDetailsCollection.Find(x => x.Version == migration.Version).SingleOrDefaultAsync();
+                    //delete the previous run if exits
                     if(previousRun != null)
                         result = await migrationDetailsCollection.DeleteOneAsync(x => x.Version == migration.Version);
-                    if(previousRun == null || result?.DeletedCount == 1)
+                    //if no previous run or deleted successfully, insert new details
+                    //if other node already deleted, the deleted count on the current node will be 0
+                    if (previousRun == null || result?.DeletedCount == 1)
+                    {
                         await migrationDetailsCollection.InsertOneAsync(migration.MigrationDetails);
+                        setToProgressSuccessfully = true;
+                    }
                 }
                 else
+                {
                     await migrationDetailsCollection.InsertOneAsync(migration.MigrationDetails);
-                return true;
+                    setToProgressSuccessfully = true;
+                }
+
+                return setToProgressSuccessfully;
             }
             catch (MongoWriteException)
             {
+                //if other node already inserted the migration in progress details in DB, wait for it to complete
                 await PollForMigrationStatus();
                 return false;
             }

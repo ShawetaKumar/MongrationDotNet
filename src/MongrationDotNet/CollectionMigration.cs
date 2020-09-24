@@ -8,6 +8,11 @@ using MongoDB.Driver;
 
 namespace MongrationDotNet
 {
+    /// <summary>
+    /// These are migrations performed on every document in a given collection
+    /// Specify the collection name, version number (Semantic Versioning) and an optional description,
+    /// Add to the MigrationFields property to create a dictionary of collection name and fields to rename/remove
+    /// </summary>
     public abstract class CollectionMigration : Migration
     {
         private ILogger logger;
@@ -43,12 +48,17 @@ namespace MongrationDotNet
                 CollectionName);
         }
 
+        /// <summary>
+        /// This method migrate all the documents in the collection to the new schema by:
+        /// 1. Rename field to the new desired name
+        /// 2. Remove field from the document
+        /// </summary>
+        /// <param name="collection"></param>
+        /// <param name="from"></param>
+        /// <param name="to"></param>
+        /// <returns></returns>
         private async Task MigrateDocumentToNewSchema(IMongoCollection<BsonDocument> collection, string from, string to)
         {
-            /*This method migrate all the documents in the collection to the new schema by:
-                1. Rename field to the new desired name
-                2. Remove field from the document
-            */
             if (to.Contains("$[]"))
             {
                 await RenameArrayFields(collection, from, to);
@@ -130,6 +140,11 @@ namespace MongrationDotNet
             document.AsBsonDocument.Remove(from);
         }
 
+        /// <summary>
+        /// Add the property to the migration list for rename
+        /// </summary>
+        /// <param name="from">field name to rename</param>
+        /// <param name="to">new fieldname</param>
         public void AddPropertyRename(string from, string to)
         {
             if (string.IsNullOrEmpty(from))
@@ -137,6 +152,10 @@ namespace MongrationDotNet
             MigrationFields.Add((from, to));
         }
 
+        /// <summary>
+        /// Add the property to the migration list to remove
+        /// </summary>
+        /// <param name="field">field to remove</param>
         public void AddPropertyRemoval(string field)
         {
             if (string.IsNullOrEmpty(field))

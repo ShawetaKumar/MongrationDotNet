@@ -7,6 +7,10 @@ using MongoDB.Driver;
 
 namespace MongrationDotNet
 {
+    /// <summary>
+    /// This migration can be used if the calculation of the new field value is required to be done at client end
+    /// This migration is applied by looping through each of the document in the collection based on Filter specified
+    /// </summary>
     public abstract class ClientSideDocumentMigration : Migration
     {
         public override string Type { get; } = Constants.ClientSideDocumentMigrationType;
@@ -47,6 +51,12 @@ namespace MongrationDotNet
                 CollectionName, updated);
         }
 
+        /// <summary>
+        /// override this method to restructure the document.
+        /// The returned restructured document is then replaced in the collection
+        /// </summary>
+        /// <param name="document">document to be migrated to new schema</param>
+        /// <returns></returns>
         public abstract BsonDocument MigrateDocument(BsonDocument document);
     }
 }
