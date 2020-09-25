@@ -41,7 +41,7 @@ namespace MongrationDotNet.Tests
         [Test]
         public async Task Migration_ShouldSkipMigration_WhenMigrationVersionIsAlreadyApplied()
         {
-            var migrationDetails = new MigrationDetails(Version, Constants.DatabaseMigrationType, "database migration");
+            var migrationDetails = new MigrationDetails(Version, Constants.DatabaseMigrationType, "database migration", DefaultMigrationExpiry);
             migrationDetails.MarkCompleted();
             await MigrationCollection.InsertOneAsync(migrationDetails);
 

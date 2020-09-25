@@ -11,16 +11,14 @@ namespace MongrationDotNet
     public class MigrationRunner : IMigrationRunner
     {
         private readonly IMongoDatabase database;
-        private readonly MigrationOptions migrationOptions;
         private readonly ILogger<MigrationRunner> logger;
         private readonly IEnumerable<IMigration> migrationCollection;
         private IMongoCollection<MigrationDetails> migrationDetailsCollection;
 
-        public MigrationRunner(IMongoDatabase database, IEnumerable<IMigration> migrationCollection, IOptions<MigrationOptions> options,
+        public MigrationRunner(IMongoDatabase database, IEnumerable<IMigration> migrationCollection,
             ILogger<MigrationRunner> logger = null)
         {
             this.database = database;
-            this.migrationOptions = options.Value;
             this.migrationCollection = migrationCollection.OrderBy(x=>x.Version);
             this.logger = logger;
         }
@@ -35,11 +33,6 @@ namespace MongrationDotNet
             var migrationsApplied = new List<MigrationDetails>();
             try
             {
-                if (await AnyMigrationInProgress())
-                {
-                    await PollForMigrationStatus();
-                }
-
                 foreach (var migration in migrationCollection)
                 {
                     logger?.LogInformation(LoggingEvents.MigrationStarted,
@@ -51,27 +44,27 @@ namespace MongrationDotNet
                         .FirstOrDefaultAsync();
 
                     if (latestAppliedMigration == null || latestAppliedMigration.Status != MigrationStatus.Completed &&
-                        migration.RerunMigration)
+                        migration.RerunMigration && migration.MigrationDetails.ExpireAt > DateTime.UtcNow)
                     {
                         MigrationDetails migrationApplied = null;
                         try
                         {
                             var success = await SetMigrationInProgress(migration);
+                            //not able to set current migration in progress. Not safe to run the subsequent migrations
                             if (!success)
-                                continue;
-                            
+                            {
+                                logger?.LogError(LoggingEvents.MigrationFailed,
+                                    "Failed to set migration in progress for type: {type}, version: {version} and description: {description}. Skipping other migrations.",
+                                    migration.Type, migration.Version.ToString(), migration.Description);
+                                break;
+                            }
+
                             migration.Prepare();
                             await migration.ExecuteAsync(database, logger);
                             migrationApplied = await SetMigrationAsCompleted(migration);
                             logger?.LogInformation(LoggingEvents.MigrationCompleted,
                                 "Migration completed type: {type}, version: {version} and description: {description} ",
                                 migration.Type, migration.Version.ToString(), migration.Description);
-                        }
-                        catch (TimeoutException ex)
-                        {
-                            logger?.LogError(LoggingEvents.MigrationFailed,
-                                "Migration failed for type: {type}, version: {version} and description: {description} with exception: {exception}.",
-                                migration.Type, migration.Version.ToString(), migration.Description, ex.Message);
                         }
                         catch (Exception ex)
                         {
@@ -87,10 +80,16 @@ namespace MongrationDotNet
                                 migrationsApplied.Add(migrationApplied);
                         }
                     }
+                    else if (latestAppliedMigration.Status == MigrationStatus.InProgress)
+                    {
+                        logger?.LogInformation(LoggingEvents.MigrationSkipped,
+                            "Migration has already been started by another node. Skipping migration on current node");
+                        break;
+                    }
                     else
                     {
                         logger?.LogInformation(LoggingEvents.MigrationSkipped,
-                            "Migration has already been applied or in progress. Skipped migration for type: {type}, version: {version} and description: {description} ",
+                            "Migration has already been applied. Skipped migration for type: {type}, version: {version} and description: {description} ",
                             migration.Type, migration.Version.ToString(),
                             migration.Description);
                     }   
@@ -130,8 +129,8 @@ namespace MongrationDotNet
                     DeleteResult result = null;
                     var previousRun = await migrationDetailsCollection.Find(x => x.Version == migration.Version).SingleOrDefaultAsync();
                     //delete the previous run if exits
-                    if(previousRun != null)
-                        result = await migrationDetailsCollection.DeleteOneAsync(x => x.Version == migration.Version);
+                    if(previousRun != null && previousRun.Status == MigrationStatus.Errored)
+                        result = await migrationDetailsCollection.DeleteOneAsync(x => x.Version == migration.Version && x.Status == MigrationStatus.Errored && x.UpdatedAt == previousRun.UpdatedAt);
                     //if no previous run or deleted successfully, insert new details
                     //if other node already deleted, the deleted count on the current node will be 0
                     if (previousRun == null || result?.DeletedCount == 1)
@@ -150,8 +149,7 @@ namespace MongrationDotNet
             }
             catch (MongoWriteException)
             {
-                //if other node already inserted the migration in progress details in DB, wait for it to complete
-                await PollForMigrationStatus();
+                //if other node already running the migration skip running it
                 return false;
             }
             
@@ -175,22 +173,6 @@ namespace MongrationDotNet
                 x => x.Version == migration.Version, migrationDetails,
                 new ReplaceOptions {IsUpsert = false});
             return migrationDetails;
-        }
-
-        private async Task PollForMigrationStatus()
-        {
-            var pollingInterval = TimeSpan.FromMilliseconds(migrationOptions.MigrationProgressDbPollingInterval);
-            var pollingTimeout = TimeSpan.FromMilliseconds(migrationOptions.MigrationProgressDbPollingTimeout);
-            bool migrationInProgress;
-            var start = DateTime.UtcNow;
-            do
-            {
-                await Task.Delay(pollingInterval);
-                migrationInProgress = await AnyMigrationInProgress();
-            } while (migrationInProgress && DateTime.UtcNow - start < pollingTimeout);
-
-            if (migrationInProgress && DateTime.UtcNow - start > pollingTimeout)
-                throw new TimeoutException("Timing out on waiting for the Migration running on other thread");
         }
     }
 }

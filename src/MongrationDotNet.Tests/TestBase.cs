@@ -15,6 +15,7 @@ namespace MongrationDotNet.Tests
         private const string NugetPackages = "NUGET_PACKAGES";
         public const string DbName = "dbName";
         public const string CollectionName = "product";
+        public TimeSpan DefaultMigrationExpiry = TimeSpan.FromMinutes(2);
         public IMongoDatabase Database;
         public IMigrationRunner MigrationRunner;
         public MongoDbRunner Runner;
@@ -39,11 +40,6 @@ namespace MongrationDotNet.Tests
             Database = client.GetDatabase(DbName);
 
             var serviceProvider = new ServiceCollection()
-                .Configure<MigrationOptions>(options =>
-                {
-                    options.MigrationProgressDbPollingInterval = 500;
-                    options.MigrationProgressDbPollingTimeout = 2500;
-                })
                 .AddMigration(Database)
                 .WithAllAvailableMigrations()
                 .BuildServiceProvider();

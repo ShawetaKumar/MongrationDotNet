@@ -8,12 +8,14 @@ namespace MongrationDotNet
     [BsonIgnoreExtraElements]
     public class MigrationDetails
     {
-        public MigrationDetails(Version version, string type, string description)
+        public MigrationDetails(Version version, string type, string description, TimeSpan expiryAfter)
         {
             Version = version;
             Type = type;
             Description = description;
             Status = MigrationStatus.InProgress;
+            UpdatedAt = DateTime.UtcNow;
+            ExpireAt = UpdatedAt.Add(expiryAfter);
         }
 
        [BsonId]
@@ -25,6 +27,7 @@ namespace MongrationDotNet
         public MigrationStatus Status { get; set; }
         public string ErrorMessage { get; set; }
         public DateTime UpdatedAt { get; set; }
+        public DateTime ExpireAt { get; set; }
 
         public void MarkCompleted()
         {

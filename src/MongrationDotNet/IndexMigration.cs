@@ -17,6 +17,7 @@ namespace MongrationDotNet
         private IMongoDatabase database;
         private ILogger logger;
         public override string Type { get; } = Constants.IndexMigrationType;
+        public override TimeSpan ExpiryAfter { get; } = TimeSpan.FromMinutes(2);
         public abstract string CollectionName { get; }
         
         public ICollection<Dictionary<string, SortOrder>> IndexCreationList { get; } =

@@ -39,7 +39,7 @@ namespace MongrationDotNet.Tests
         [Test]
         public async Task Migration_ShouldSkipMigration_WhenMigrationVersionIsAlreadyApplied()
         {
-            var migrationDetails = new MigrationDetails(Version, Constants.SeedingDataMigrationType, "initialize database");
+            var migrationDetails = new MigrationDetails(Version, Constants.SeedingDataMigrationType, "initialize database", DefaultMigrationExpiry);
             migrationDetails.MarkCompleted();
             await MigrationCollection.InsertOneAsync(migrationDetails);
 
