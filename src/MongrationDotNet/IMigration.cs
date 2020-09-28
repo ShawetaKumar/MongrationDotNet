@@ -11,6 +11,7 @@ namespace MongrationDotNet
         string Type { get; }
         string Description { get; }
         bool RerunMigration { get; }
+        TimeSpan ExpiryAfter { get; }
         MigrationDetails MigrationDetails { get; }
         void Prepare();
         Task ExecuteAsync(IMongoDatabase database, ILogger logger);

@@ -10,6 +10,10 @@ using MongoDB.Driver;
 
 namespace MongrationDotNet
 {
+    /// <summary>
+    /// This migration migrates the documents to new schema
+    /// For the field value, a static value or an expression (calculation/method like avg/count) can be specified
+    /// </summary>
     public abstract class ServerSideDocumentMigration : Migration
     {
         public override string Type { get; } = Constants.ServerSideDocumentMigrationType;
@@ -54,6 +58,11 @@ namespace MongrationDotNet
                 CollectionName);
         }
 
+        /// <summary>
+        /// Adds to the Migration field
+        /// </summary>
+        /// <param name="field">field whose value needs to be set. Can be either new or existing field</param>
+        /// <param name="expression">expression to deduce new value</param>
         public void AddMigrationField(string field, string expression)
         {
             if (string.IsNullOrEmpty(field))

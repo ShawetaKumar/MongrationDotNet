@@ -335,7 +335,7 @@ These are migrations performed on the documents of the collection to update the 
 1. ServerSideDocumentMigration 
 2. ClientSideDocumentMigration
 
-Server Side Documnet Migration:
+Server Side Document Migration:
 In this migration you can specify a static value or provide an expression to apply some calculation/method(concat/sum/average) on the values before assigning it to the new field. The update is done via aggregation pipeline so you can also specify your own aggregation pipeline apart from $set/$addfield in the migration. You can also specify the filters on which the update should be applied. If not specified, it will be by default applied to all documents in the collection.   
 
 ```csharp
@@ -389,7 +389,7 @@ public class DocumentsUpdate_Revision7 : ServerSideDocumentMigration
 ```
 
 Client Side Documnet Migration:
-This migration can be used if the calculation of the new field value is somewhat complex. This migration is applied by looping through each of the document in the collection.  You can also specify the filters on which the migration should be applied. If not specified, it will be by default applied to all documents in the collection. You need to override the MigrateDocument method to restructure the document. The returned restructed document is then replaced in the collection. You can specify the field which should be used in the replace method filter. If not specified the default filter of _id will be used. By default all the documents are loaded in memory at once but you can override BatchSize property to specify the chunks in which you wish to apply the migration.  
+This migration can be used if the calculation of the new field value is somewhat complex. This migration is applied by looping through each of the document in the collection.  You can also specify the filters on which the migration should be applied. If not specified, it will be by default applied to all documents in the collection. You need to override the MigrateDocument method to restructure the document. The returned restructured document is then replaced in the collection. You can specify the field which should be used in the replace method filter. If not specified the default filter of _id will be used. By default all the documents are loaded in memory at once but you can override BatchSize property to specify the chunks in which you wish to apply the migration.  
 
 ```csharp
 public class ClientSideUpdateDocument : ClientSideDocumentMigration

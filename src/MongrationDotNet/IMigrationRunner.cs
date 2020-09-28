@@ -1,9 +1,10 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace MongrationDotNet
 {
     public interface IMigrationRunner
     {
-        public Task Migrate();
+        public Task<List<MigrationDetails>> Migrate();
     }
 }

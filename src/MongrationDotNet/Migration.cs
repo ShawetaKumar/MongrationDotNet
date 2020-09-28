@@ -11,7 +11,8 @@ namespace MongrationDotNet
         public abstract string Type { get; }
         public virtual string Description { get; }
         public virtual bool RerunMigration { get; } = false;
-        public MigrationDetails MigrationDetails => new MigrationDetails(Version , Type, Description);
+        public virtual TimeSpan ExpiryAfter { get; } = TimeSpan.FromMinutes(30);
+        public MigrationDetails MigrationDetails => new MigrationDetails(Version , Type, Description, ExpiryAfter);
 
         public abstract void Prepare();
         public abstract Task ExecuteAsync(IMongoDatabase database, ILogger logger);

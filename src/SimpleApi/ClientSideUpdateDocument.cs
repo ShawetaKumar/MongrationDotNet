@@ -12,6 +12,7 @@ namespace SimpleApi
         public override string CollectionName => "items";
         public override int BatchSize { get; } = 1;
         public override bool RerunMigration => true;
+        public override TimeSpan ExpiryAfter { get; } = TimeSpan.FromMinutes(20);
 
         public override void Prepare()
         {

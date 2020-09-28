@@ -8,11 +8,17 @@ using MongoDB.Driver;
 
 namespace MongrationDotNet
 {
+    /// <summary>
+    /// These are migrations performed on the database to create/rename/drop collection
+    /// Add to the appropriate migration property to create/rename/drop
+    /// Only add to that list which you need to migrate
+    /// </summary>
     public abstract class DatabaseMigration : Migration
     {
         private IMongoDatabase database;
         private ILogger logger;
         public override string Type { get; } = Constants.DatabaseMigrationType;
+        public override TimeSpan ExpiryAfter { get; } = TimeSpan.FromMinutes(2);
         public ICollection<string> CollectionCreationList { get; } = new List<string>();
         public ICollection<string> CollectionDropList { get; } = new List<string>();
         public Dictionary<string, string> CollectionRenameList { get; } = new Dictionary<string, string>();
@@ -83,6 +89,10 @@ namespace MongrationDotNet
             }
         }
 
+        /// <summary>
+        /// Adds to the collection creation list
+        /// </summary>
+        /// <param name="collectionName">collection name to be created</param>
         public void AddCollectionToCreate(string collectionName)
         {
             if (string.IsNullOrEmpty(collectionName))
@@ -92,6 +102,10 @@ namespace MongrationDotNet
                 CollectionCreationList.Add(collectionName);
         }
 
+        /// <summary>
+        /// Adds to the collection drop list
+        /// </summary>
+        /// <param name="collectionName">collection name to be dropped</param>
         public void AddCollectionToDrop(string collectionName)
         {
             if (string.IsNullOrEmpty(collectionName))
@@ -101,6 +115,11 @@ namespace MongrationDotNet
                 CollectionDropList.Add(collectionName);
         }
 
+        /// <summary>
+        /// Adds to the collection rename list
+        /// </summary>
+        /// <param name="from">collection name to be renamed</param>
+        /// <param name="to">new name for the collection</param>
         public void AddCollectionForRename(string from, string to)
         {
             if (!CollectionRenameList.ContainsKey(from))

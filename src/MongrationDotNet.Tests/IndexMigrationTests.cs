@@ -17,9 +17,9 @@ namespace MongrationDotNet.Tests
         }
 
         [TearDown]
-        public async Task ResetMigrationDetails()
+        public async Task Reset()
         {
-            await Database.ListCollectionNames().ForEachAsync(async x => await Database.DropCollectionAsync(x));
+            await ResetMigrationDetails();
         }
 
         [Test]
@@ -27,7 +27,7 @@ namespace MongrationDotNet.Tests
         {
             await MigrationRunner.Migrate();
 
-            var collection = Database.GetCollection<BsonDocument>(TestBase.CollectionName);
+            var collection = Database.GetCollection<BsonDocument>(CollectionName);
             using var cursor = await collection.Indexes.ListAsync();
             var indexes = await cursor.ToListAsync();
 
