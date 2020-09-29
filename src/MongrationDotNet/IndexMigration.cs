@@ -42,6 +42,10 @@ namespace MongrationDotNet
 
         private async Task CreateIndexes()
         {
+            var collection = database.GetCollection<BsonDocument>(CollectionName);
+            using var cursor = await collection.Indexes.ListAsync();
+            var indexes = await cursor.ToListAsync();
+
             foreach (var indexOnFieldNames in IndexCreationList)
             {
                 logger?.LogInformation(LoggingEvents.ApplyingIndexMigration,
@@ -50,14 +54,20 @@ namespace MongrationDotNet
                 var indexKeys = new BsonDocument(indexOnFieldNames.Select(x => new BsonElement(x.Key, x.Value)));
                 var indexName =
                     $"{CollectionName}_{string.Join("-", indexOnFieldNames.Select(x => $"{x.Key}({x.Value})"))}";
-                await database.GetCollection<BsonDocument>(CollectionName).Indexes.CreateOneAsync(
-                    new CreateIndexModel<BsonDocument>(indexKeys,
-                        new CreateIndexOptions { Name = indexName }));
+
+                if (indexes.FindIndex(i => i["name"] == indexName) < 0)
+                    await collection.Indexes.CreateOneAsync(
+                        new CreateIndexModel<BsonDocument>(indexKeys,
+                            new CreateIndexOptions { Name = indexName }));
             }
         }
 
         public async Task CreateExpiryIndex()
         {
+            var collection = database.GetCollection<BsonDocument>(CollectionName);
+            using var cursor = await collection.Indexes.ListAsync();
+            var indexes = await cursor.ToListAsync();
+
             foreach (var (fieldName, collectionExpiryInDays) in ExpiryIndexList)
             {
 
@@ -66,7 +76,9 @@ namespace MongrationDotNet
 
                 var indexKey = new BsonDocument(fieldName, 1);
                 var indexName = $"{CollectionName}_{fieldName}";
-                await database.GetCollection<BsonDocument>(CollectionName).Indexes.CreateOneAsync(
+
+                if (indexes.FindIndex(i => i["name"] == indexName) < 0)
+                    await collection.Indexes.CreateOneAsync(
                     new CreateIndexModel<BsonDocument>(indexKey,
                         new CreateIndexOptions
                             {Name = indexName, ExpireAfter = new TimeSpan(collectionExpiryInDays, 0, 0, 0)}));
