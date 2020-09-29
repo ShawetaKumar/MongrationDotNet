@@ -44,7 +44,7 @@ namespace MongrationDotNet
                         .FirstOrDefaultAsync();
 
                     if (latestAppliedMigration == null || latestAppliedMigration.Status != MigrationStatus.Completed &&
-                        migration.RerunMigration && migration.MigrationDetails.ExpireAt > DateTime.UtcNow)
+                        migration.RerunMigration && latestAppliedMigration.ExpireAt < DateTime.UtcNow)
                     {
                         MigrationDetails migrationApplied = null;
                         try
@@ -83,7 +83,8 @@ namespace MongrationDotNet
                     else if (latestAppliedMigration.Status == MigrationStatus.InProgress)
                     {
                         logger?.LogInformation(LoggingEvents.MigrationSkipped,
-                            "Migration has already been started by another node. Skipping migration on current node");
+                            "Migration for type: {type}, version: {version} and description: {description} has already been started by another node or still not expired for a rerun. Skipping all migrations", migration.Type, migration.Version.ToString(),
+                        migration.Description);
                         break;
                     }
                     else
@@ -129,8 +130,8 @@ namespace MongrationDotNet
                     DeleteResult result = null;
                     var previousRun = await migrationDetailsCollection.Find(x => x.Version == migration.Version).SingleOrDefaultAsync();
                     //delete the previous run if exits
-                    if(previousRun != null && previousRun.Status == MigrationStatus.Errored)
-                        result = await migrationDetailsCollection.DeleteOneAsync(x => x.Version == migration.Version && x.Status == MigrationStatus.Errored && x.UpdatedAt == previousRun.UpdatedAt);
+                    if(previousRun != null && previousRun.Status != MigrationStatus.Completed)
+                        result = await migrationDetailsCollection.DeleteOneAsync(x => x.Version == migration.Version && x.UpdatedAt == previousRun.UpdatedAt);
                     //if no previous run or deleted successfully, insert new details
                     //if other node already deleted, the deleted count on the current node will be 0
                     if (previousRun == null || result?.DeletedCount == 1)

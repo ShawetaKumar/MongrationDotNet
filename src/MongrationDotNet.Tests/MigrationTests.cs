@@ -86,11 +86,11 @@ namespace MongrationDotNet.Tests
 
         [Test]
         [Order(5)]
-        public async Task Migration_ShouldRerunMigration_WhenMigrationIsSetForRerunAndExistingMigrationVersionInDBIsErrored()
+        public async Task Migration_ShouldRerunMigration_WhenMigrationIsSetForRerunAndExistingMigrationVersionInDBIsErroredAndExpired()
         {
             var version = new Version(1, 1, 1, 7);
             var migrationDetails =
-                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "migrate to new schema", DefaultMigrationExpiry);
+                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "migrate to new schema", TimeSpan.FromMilliseconds(5));
             migrationDetails.MarkErrored("Test ErrorMessage");
             await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
                 new ReplaceOptions { IsUpsert = true });
@@ -111,12 +111,11 @@ namespace MongrationDotNet.Tests
 
         [Test]
         [Order(6)]
-        public async Task Migration_ShouldSkipMigration_WhenMigrationIsSetForRerunButMigrationHasAlreadyExpired()
+        public async Task Migration_ShouldSkipMigration_WhenMigrationIsSetForRerunButMigrationHasNotExpiredYet()
         {
             var version = new Version(1, 1, 1, 7);
             var migrationDetails =
-                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "migrate to new schema", TimeSpan.FromMilliseconds(5));
-            migrationDetails.MarkCompleted();
+                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "migrate to new schema", DefaultMigrationExpiry);
 
             await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
                 new ReplaceOptions { IsUpsert = true });
