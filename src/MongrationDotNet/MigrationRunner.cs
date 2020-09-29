@@ -44,7 +44,7 @@ namespace MongrationDotNet
                         .FirstOrDefaultAsync();
 
                     if (latestAppliedMigration == null || latestAppliedMigration.Status != MigrationStatus.Completed &&
-                        migration.RerunMigration && migration.MigrationDetails.ExpireAt > DateTime.UtcNow)
+                        migration.RerunMigration && latestAppliedMigration.ExpireAt < DateTime.UtcNow)
                     {
                         MigrationDetails migrationApplied = null;
                         try
@@ -83,7 +83,8 @@ namespace MongrationDotNet
                     else if (latestAppliedMigration.Status == MigrationStatus.InProgress)
                     {
                         logger?.LogInformation(LoggingEvents.MigrationSkipped,
-                            "Migration has already been started by another node. Skipping migration on current node");
+                            "Migration for type: {type}, version: {version} and description: {description} has already been started by another node or still not expired for a rerun. Skipping all migrations", migration.Type, migration.Version.ToString(),
+                        migration.Description);
                         break;
                     }
                     else
