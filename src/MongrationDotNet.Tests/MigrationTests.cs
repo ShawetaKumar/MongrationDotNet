@@ -86,11 +86,11 @@ namespace MongrationDotNet.Tests
 
         [Test]
         [Order(5)]
-        public async Task Migration_ShouldRerunMigration_WhenMigrationIsSetForRerunAndExistingMigrationVersionInDBIsErroredAndExpired()
+        public async Task Migration_ShouldRerunMigration_WhenMigrationIsSetForRerunAndExistingMigrationVersionInDBIsErroredAndNotExpired()
         {
             var version = new Version(1, 1, 1, 7);
             var migrationDetails =
-                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "migrate to new schema", TimeSpan.FromMilliseconds(5));
+                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "migrate to new schema", DefaultMigrationExpiry);
             migrationDetails.MarkErrored("Test ErrorMessage");
             await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
                 new ReplaceOptions { IsUpsert = true });
@@ -111,7 +111,7 @@ namespace MongrationDotNet.Tests
 
         [Test]
         [Order(6)]
-        public async Task Migration_ShouldSkipMigration_WhenMigrationIsSetForRerunButMigrationHasNotExpiredYet()
+        public async Task Migration_ShouldSkipInProgressMigration_WhenMigrationIsSetForRerunButMigrationHasNotExpiredYet()
         {
             var version = new Version(1, 1, 1, 7);
             var migrationDetails =
@@ -127,6 +127,31 @@ namespace MongrationDotNet.Tests
 
         [Test]
         [Order(7)]
+        public async Task Migration_ShouldRerunInProgressMigration_WhenMigrationIsSetForRerunAndMigrationHasExpired()
+        {
+            var version = new Version(1, 1, 1, 7);
+            var migrationDetails =
+                new MigrationDetails(version, Constants.ClientSideDocumentMigrationType, "migrate to new schema", TimeSpan.FromMilliseconds(5));
+
+            await MigrationCollection.ReplaceOneAsync(x => x.Version == version, migrationDetails,
+                new ReplaceOptions { IsUpsert = true });
+
+            var savedMigration = await MigrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            var migrationsApplied = await MigrationRunner.Migrate();
+            var result = await MigrationCollection
+                .Find(x => x.Version == version).FirstOrDefaultAsync();
+
+            result.ShouldNotBeNull();
+            result.UpdatedAt.ShouldBeGreaterThan(savedMigration.UpdatedAt);
+            result.Status.ShouldBe(MigrationStatus.Completed);
+            result.ErrorMessage.ShouldBeNull();
+            migrationsApplied.Count(x => x.Version == version).ShouldBe(1);
+        }
+
+        [Test]
+        [Order(8)]
         public async Task Migration_ShouldSaveMigrationDetailsWithError_WhenMigrationGeneratedError()
         {
             var version = MigrationForErrorTest.version;
@@ -139,7 +164,7 @@ namespace MongrationDotNet.Tests
         }
 
         [Test]
-        [Order(8)]
+        [Order(9)]
         public async Task Migration_ShouldBeAppliedOnlyOnce_WhenMultipleTaskRunTheMigration()
         {
             var tasks = new Task<List<MigrationDetails>>[3];

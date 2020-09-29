@@ -41,6 +41,13 @@ namespace MongrationDotNet
             UpdatedAt = DateTime.UtcNow;
             ErrorMessage = errorMessage;
         }
+
+        public bool ShouldRerun(bool rerun)
+        {
+            return Status == MigrationStatus.InProgress &&
+                   rerun && ExpireAt < DateTime.UtcNow || Status == MigrationStatus.Errored &&
+                   rerun;
+        }
     }
 
     public enum MigrationStatus
