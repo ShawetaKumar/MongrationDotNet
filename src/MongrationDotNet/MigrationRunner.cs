@@ -129,8 +129,8 @@ namespace MongrationDotNet
                     DeleteResult result = null;
                     var previousRun = await migrationDetailsCollection.Find(x => x.Version == migration.Version).SingleOrDefaultAsync();
                     //delete the previous run if exits
-                    if(previousRun != null && previousRun.Status == MigrationStatus.Errored)
-                        result = await migrationDetailsCollection.DeleteOneAsync(x => x.Version == migration.Version && x.Status == MigrationStatus.Errored && x.UpdatedAt == previousRun.UpdatedAt);
+                    if(previousRun != null && previousRun.Status != MigrationStatus.Completed)
+                        result = await migrationDetailsCollection.DeleteOneAsync(x => x.Version == migration.Version && x.UpdatedAt == previousRun.UpdatedAt);
                     //if no previous run or deleted successfully, insert new details
                     //if other node already deleted, the deleted count on the current node will be 0
                     if (previousRun == null || result?.DeletedCount == 1)
