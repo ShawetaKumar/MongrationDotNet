@@ -43,8 +43,7 @@ namespace MongrationDotNet
                         .Find(x => x.Version == migration.Version)
                         .FirstOrDefaultAsync();
 
-                    if (latestAppliedMigration == null || latestAppliedMigration.Status != MigrationStatus.Completed &&
-                        migration.RerunMigration && latestAppliedMigration.ExpireAt < DateTime.UtcNow)
+                    if (latestAppliedMigration == null || latestAppliedMigration.ShouldRerun(migration.RerunMigration))
                     {
                         MigrationDetails migrationApplied = null;
                         try
