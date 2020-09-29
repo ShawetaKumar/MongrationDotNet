@@ -64,6 +64,10 @@ namespace MongrationDotNet
 
         public async Task CreateExpiryIndex()
         {
+            var collection = database.GetCollection<BsonDocument>(CollectionName);
+            using var cursor = await collection.Indexes.ListAsync();
+            var indexes = await cursor.ToListAsync();
+
             foreach (var (fieldName, collectionExpiryInDays) in ExpiryIndexList)
             {
 
@@ -72,7 +76,9 @@ namespace MongrationDotNet
 
                 var indexKey = new BsonDocument(fieldName, 1);
                 var indexName = $"{CollectionName}_{fieldName}";
-                await database.GetCollection<BsonDocument>(CollectionName).Indexes.CreateOneAsync(
+
+                if (indexes.FindIndex(i => i["name"] == indexName) < 0)
+                    await collection.Indexes.CreateOneAsync(
                     new CreateIndexModel<BsonDocument>(indexKey,
                         new CreateIndexOptions
                             {Name = indexName, ExpireAfter = new TimeSpan(collectionExpiryInDays, 0, 0, 0)}));
