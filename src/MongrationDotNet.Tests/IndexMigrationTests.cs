@@ -71,7 +71,19 @@ namespace MongrationDotNet.Tests
             using var cursor = await collection.Indexes.ListAsync();
 
             var indexes = await cursor.ToListAsync();
-            indexes.Should().Contain(index => index["name"] == $"{TestBase.CollectionName}_lastUpdatedUtc");
+            indexes.Should().Contain(index => index["name"] == $"{TestBase.CollectionName}_lastUpdatedUtc" && index["expireAfterSeconds"] == 2592000.0);
+        }
+
+        [Test]
+        public async Task Migration_ShouldCreateUniqueIndex_WhenCreateUniqueIndexListContainsIndexNames()
+        {
+            await MigrationRunner.Migrate();
+
+            var collection = Database.GetCollection<BsonDocument>(TestBase.CollectionName);
+            using var cursor = await collection.Indexes.ListAsync();
+
+            var indexes = await cursor.ToListAsync();
+            indexes.Should().Contain(index => index["name"] == $"{TestBase.CollectionName}__id(Ascending)-status(Ascending)" && index["unique"] == true);
         }
 
         [Test]

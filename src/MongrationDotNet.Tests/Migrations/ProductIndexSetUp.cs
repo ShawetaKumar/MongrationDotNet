@@ -18,6 +18,8 @@ namespace MongrationDotNet.Tests.Migrations
                 new[] { SortOrder.Ascending, SortOrder.Ascending });
             AddIndex(new[] { "_id", "lastUpdatedUtc" },
                 new[] { SortOrder.Ascending, SortOrder.Ascending });
+            AddIndex(new[] { "_id", "status" },
+                new[] { SortOrder.Ascending, SortOrder.Ascending }, true);
             AddExpiryIndex("lastUpdatedUtc", 30);
         }
     }
