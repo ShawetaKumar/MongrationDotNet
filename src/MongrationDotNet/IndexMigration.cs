@@ -16,11 +16,15 @@ namespace MongrationDotNet
     {
         private IMongoDatabase database;
         private ILogger logger;
+        private IMongoCollection<BsonDocument> collection;
         public override string Type { get; } = Constants.IndexMigrationType;
         public override TimeSpan ExpiryAfter { get; } = TimeSpan.FromMinutes(2);
         public abstract string CollectionName { get; }
         
         public ICollection<Dictionary<string, SortOrder>> IndexCreationList { get; } =
+            new List<Dictionary<string, SortOrder>>();
+
+        public ICollection<Dictionary<string, SortOrder>> UniqueIndexList { get; } =
             new List<Dictionary<string, SortOrder>>();
 
         public ICollection<(string, int)> ExpiryIndexList { get; } = new List<(string, int)>();
@@ -32,8 +36,10 @@ namespace MongrationDotNet
             this.logger = logger;
             logger?.LogInformation(LoggingEvents.IndexMigrationStarted, "Database migration started");
             database = mongoDatabase;
+            collection = database.GetCollection<BsonDocument>(CollectionName);
 
             await CreateIndexes();
+            await CreateUniqueIndexes();
             await CreateExpiryIndex();
             await DropIndexes();
 
@@ -42,15 +48,25 @@ namespace MongrationDotNet
 
         private async Task CreateIndexes()
         {
-            var collection = database.GetCollection<BsonDocument>(CollectionName);
+            await BuildIndex(IndexCreationList, null);
+        }
+
+        private async Task CreateUniqueIndexes()
+        {
+            await BuildIndex(UniqueIndexList, true);
+        }
+
+        private async Task BuildIndex(IEnumerable<Dictionary<string, SortOrder>> indexList, bool? isUnique)
+        {
             using var cursor = await collection.Indexes.ListAsync();
             var indexes = await cursor.ToListAsync();
 
-            foreach (var indexOnFieldNames in IndexCreationList)
+            foreach (var indexOnFieldNames in indexList)
             {
                 logger?.LogInformation(LoggingEvents.ApplyingIndexMigration,
                     "Creating indexes on {fields} on {collection}", string.Join(',', indexOnFieldNames.Keys),
                     CollectionName);
+
                 var indexKeys = new BsonDocument(indexOnFieldNames.Select(x => new BsonElement(x.Key, x.Value)));
                 var indexName =
                     $"{CollectionName}_{string.Join("-", indexOnFieldNames.Select(x => $"{x.Key}({x.Value})"))}";
@@ -58,13 +74,14 @@ namespace MongrationDotNet
                 if (indexes.FindIndex(i => i["name"] == indexName) < 0)
                     await collection.Indexes.CreateOneAsync(
                         new CreateIndexModel<BsonDocument>(indexKeys,
-                            new CreateIndexOptions { Name = indexName }));
+                            new CreateIndexOptions { Name = indexName, Unique = isUnique}));
             }
+
+            
         }
 
-        public async Task CreateExpiryIndex()
+        private async Task CreateExpiryIndex()
         {
-            var collection = database.GetCollection<BsonDocument>(CollectionName);
             using var cursor = await collection.Indexes.ListAsync();
             var indexes = await cursor.ToListAsync();
 
@@ -92,7 +109,6 @@ namespace MongrationDotNet
                 logger?.LogInformation(LoggingEvents.ApplyingIndexMigration,
                     "Dropping index {index} from {CollectionName}", index, CollectionName);
 
-                var collection = database.GetCollection<BsonDocument>(CollectionName);
                 using var cursor = await collection.Indexes.ListAsync();
                 var indexes = await cursor.ToListAsync();
 
@@ -109,9 +125,13 @@ namespace MongrationDotNet
         /// </summary>
         /// <param name="field">field name on which index is to be created</param>
         /// <param name="sortOrder">sort order for the index</param>
-        public void AddIndex(string field, SortOrder sortOrder)
+        /// <param name="unique">the index to be created as unique</param>
+        public void AddIndex(string field, SortOrder sortOrder, bool unique = false)
         {
-            IndexCreationList.Add(new Dictionary<string, SortOrder> { { field, sortOrder } });
+            if(unique)
+                UniqueIndexList.Add(new Dictionary<string, SortOrder> { { field, sortOrder } });
+            else
+                IndexCreationList.Add(new Dictionary<string, SortOrder> { { field, sortOrder } });
         }
 
         /// <summary>
@@ -119,14 +139,18 @@ namespace MongrationDotNet
         /// </summary>
         /// <param name="fields">array for fields for compound index</param>
         /// <param name="sortOrder">array for sort order for compound index</param>
-        public void AddIndex(string[] fields, SortOrder[] sortOrder)
+        /// <param name="unique">the index to be created as unique</param>
+        public void AddIndex(string[] fields, SortOrder[] sortOrder, bool unique = false)
         {
             var indexCombinations = new Dictionary<string, SortOrder>();
             for (var i = 0; i < fields.Length; i++)
             {
                 indexCombinations.Add(fields[i], sortOrder[i]);
             }
-            IndexCreationList.Add(indexCombinations);
+            if(unique)
+                UniqueIndexList.Add(indexCombinations);   
+            else
+                IndexCreationList.Add(indexCombinations);
         }
 
         /// <summary>
